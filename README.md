@@ -12,7 +12,7 @@
 
 Data and tools to improve UI clicking.
 
-This project is a follow-up on ![WaveUI](https://github.com/agentsea/wave-ui).
+This project is a follow-up on [WaveUI](https://github.com/agentsea/wave-ui).
 
 ## Data
 
