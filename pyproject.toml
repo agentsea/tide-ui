@@ -9,7 +9,7 @@ dependencies = [
     "datasets>=3.0.2",
     "huggingface-hub>=0.26.2",
     "mllm>=0.1.48",
-    "torch>=2.5.0",
+    "torch==2.4.0",
     "tqdm>=4.66.6",
     "transformers>=4.46.1",
 ]
