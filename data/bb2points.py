@@ -1,7 +1,7 @@
 import argparse
 import hashlib
 from collections import defaultdict
-from typing import Dict, List, Set
+from typing import Dict
 
 import datasets
 from datasets import load_dataset
@@ -163,7 +163,7 @@ def main(args):
 
     filtered_ds = datasets.DatasetDict(filtered_ds)
     print("\nPushing to hub...")
-    filtered_ds.push_to_hub("agentsea/wave-ui-points", private=True)
+    # filtered_ds.push_to_hub("agentsea/wave-ui-points", private=True)
     print("Done!")
 
 
