@@ -163,7 +163,7 @@ def main(args):
 
     filtered_ds = datasets.DatasetDict(filtered_ds)
     print("\nPushing to hub...")
-    filtered_ds.push_to_hub("agentsea/wave-ui-points", private=True)
+    filtered_ds.push_to_hub("agentsea/tide-ui", private=True)
     print("Done!")
 
 
