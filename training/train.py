@@ -26,9 +26,9 @@ def data_collator(dataset):
                 ]
             }
         ]
-      text = processor.apply_chat_template(messages, add_generation_prompt=False)
-      texts.append(text.strip())
-      images.append([image])
+        text = processor.apply_chat_template(messages, add_generation_prompt=False)
+        texts.append(text.strip())
+        images.append([image])
     batch = processor(text=texts, images=images, return_tensors="pt", padding=True)
     # TODO: some things missing here
     return batch
