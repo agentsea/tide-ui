@@ -8,3 +8,8 @@ In order to obtain the TideUI dataset we:
 - Removed duplicate boxes within the same image group.
 - Converted the bounding boxes into points by taking the center-point of the box.
 - Kept only the `image`, `resolution`, `name`, `point` columns.
+
+
+## Replication
+
+The dataset can be reconstructed by running the `bb2points.py` script.
