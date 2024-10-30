@@ -5,28 +5,40 @@ from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingA
 
 def data_collator(dataset):
     # TODO: finish this
-    text = dataset["text"]
-    images = dataset["image"]
-    tokens = processor(
-        images=images,
-        text=text,
-    )
-    return tokens
+    texts = []
+    images = []
+    for example in dataset:
+        image = example["image"]
+        question = example["question"]
+        answer = example["answer"]
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": question}
+                ]
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": answer}
+                ]
+            }
+        ]
+      text = processor.apply_chat_template(messages, add_generation_prompt=False)
+      texts.append(text.strip())
+      images.append([image])
+    batch = processor(text=texts, images=images, return_tensors="pt", padding=True)
+    # TODO: some things missing here
+    return batch
 
 
 def train():
-    dataset = load_dataset("agentsea/wave-ui-points")
+    dataset = load_dataset("agentsea/tide-ui")
+    # TODO: add more training args
     training_args = TrainingArguments(
-        output_dir="../tmp/molmo-7b-d-0924",
-        learning_rate=2e-5,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        num_train_epochs=2,
-        weight_decay=0.01,
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        load_best_model_at_end=True,
-        push_to_hub=True,
+        output_dir="../tmp/molmo-7b-d-0924", # store in tmp
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
@@ -39,9 +51,7 @@ def train():
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],
         data_collator=data_collator,
-        compute_metrics=compute_metrics,
     )
 
     trainer.train()
