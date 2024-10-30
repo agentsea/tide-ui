@@ -1,44 +1,31 @@
+from typing import List
+
 import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingArguments
 
+def point_to_xml(point: List[float], description: str = "") -> str:
+    x, y = point
+    return f' <point x="{x:.1f}" y="{y:.1f}" alt="{description}">{description}</point>'
 
-def data_collator(dataset):
+
+def data_collator(dataset, processor):
     # TODO: finish this
-    texts = []
-    images = []
     for example in dataset:
         image = example["image"]
-        question = example["question"]
-        answer = example["answer"]
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": question}
-                ]
-            },
-            {
-                "role": "assistant",
-                "content": [
-                    {"type": "text", "text": answer}
-                ]
-            }
-        ]
-        text = processor.apply_chat_template(messages, add_generation_prompt=False)
-        texts.append(text.strip())
-        images.append([image])
-    batch = processor(text=texts, images=images, return_tensors="pt", padding=True)
-    # TODO: some things missing here
-    return batch
+        question = "point to " + example["name"]
+        answer = point_to_xml(example["point"], example["name"])
+        text = "User: " + question + " Assistant:" + answer
+        inputs = processor.process(text=text, images=[image], return_tensors="pt", padding=True, message_format=None)
+    # TODO: need to stack the inputs here, somehow
+    return inputs
 
 
 def train():
     dataset = load_dataset("agentsea/tide-ui")
     # TODO: add more training args
     training_args = TrainingArguments(
-        output_dir="../tmp/molmo-7b-d-0924", # store in tmp
+        output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
@@ -51,7 +38,7 @@ def train():
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        data_collator=data_collator,
+        data_collator=data_collator(processor=processor),
     )
 
     trainer.train()
