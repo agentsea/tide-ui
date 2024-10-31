@@ -42,6 +42,7 @@ def data_collator(dataset, processor):
             from the processor outputs with corresponding stacked tensor values.
     """
     inputs_list = []
+    # TODO: we should be able to process in batch!
     for example in dataset:
         image = example["image"]
         question = "point to " + example["name"]
