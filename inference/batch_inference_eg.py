@@ -1,42 +1,50 @@
-from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
-from PIL import Image, ImageOps
-import requests
-import torch
 import numpy as np
+import torch
 from datasets import load_dataset
+from PIL import Image, ImageOps
+from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
+from typing import List, Dict
 
-# Load the processor
 processor = AutoProcessor.from_pretrained(
-    'allenai/Molmo-7B-D-0924',
+    "allenai/Molmo-7B-D-0924",
     trust_remote_code=True,
     torch_dtype=torch.float32,
-    device_map='auto'
+    device_map="auto",
 )
 
-# Load the model
 model = AutoModelForCausalLM.from_pretrained(
-    'allenai/Molmo-7B-D-0924',
+    "allenai/Molmo-7B-D-0924",
     trust_remote_code=True,
     torch_dtype=torch.float32,
-    device_map='auto'
+    device_map="auto",
 )
 
+# load 4 randome examples from the dataset
 data = load_dataset("agentsea/tide-ui", split="train", num_proc=8)
-# Sample 4 random examples
-data = data.shuffle(seed=69).select(range(4))
+data = data.shuffle(seed=42).select(range(4))
 
-# Prepare texts and images for batch processing
-texts = ["Point to the " + example["name"] for example in data]
-images_list = [[example["image"]] for example in data]
+def process_batch(processor: AutoProcessor, 
+                 texts: List[str], 
+                 images_list: List[List[Image.Image]]) -> Dict[str, torch.Tensor]:
+    """Process a batch of texts and images for model input.
 
-# Function to process a batch of examples
-def process_batch(processor, texts, images_list):
+    Args:
+        processor: The model processor for tokenization and image processing
+        texts: List of text prompts to process
+        images_list: List of lists of PIL images to process
+
+    Returns:
+        Dict mapping input names to batched tensors ready for model input
+    """
     batch_size = len(texts)
     tokens_list = []
     for text in texts:
         tokens = processor.tokenizer.encode(
-            " " + "User: " + text + " Assistant:",  # assuming always_start_with_space=True
-            add_special_tokens=False
+            " "
+            + "User: "
+            + text
+            + " Assistant:",  # assuming always_start_with_space=True
+            add_special_tokens=False,
         )
         tokens_list.append(tokens)
     # Process images
@@ -55,7 +63,7 @@ def process_batch(processor, texts, images_list):
                     image_arrays.append(image.astype(np.uint8))
             images_arrays_list.append(image_arrays)
             # For now only support inserting images at the start
-            image_idx = [-1]*len(image_arrays)
+            image_idx = [-1] * len(image_arrays)
             image_idxs_list.append(image_idx)
         else:
             images_arrays_list.append(None)
@@ -88,34 +96,36 @@ def process_batch(processor, texts, images_list):
             image_col_token_id=processor.special_token_ids["<im_col>"],
             image_start_token_id=processor.special_token_ids["<im_start>"],
             image_end_token_id=processor.special_token_ids["<im_end>"],
-            **images_kwargs
+            **images_kwargs,
         )
         outputs_list.append(out)
-
 
     # Collate outputs into batched tensors
     batch_outputs = {}
     for key in outputs_list[0].keys():
         tensors = [torch.from_numpy(out[key]) for out in outputs_list]
-        batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(tensors, batch_first=True, padding_value=-1)
+        batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(
+            tensors, batch_first=True, padding_value=-1
+        )
 
     # Prepend BOS token
     bos = processor.tokenizer.bos_token_id or processor.tokenizer.eos_token_id
     batch_outputs["input_ids"] = torch.nn.functional.pad(
-        batch_outputs["input_ids"],
-        (1, 0),
-        value=bos
+        batch_outputs["input_ids"], (1, 0), value=bos
     )
     if "image_input_idx" in batch_outputs:
         # Shift image input indices because of BOS token
         image_input_idx = batch_outputs["image_input_idx"]
         batch_outputs["image_input_idx"] = torch.where(
-            image_input_idx < 0,
-            image_input_idx,
-            image_input_idx + 1
+            image_input_idx < 0, image_input_idx, image_input_idx + 1
         )
 
     return batch_outputs
+
+
+# `process_batch` expects a list of texts and a **list of lists** of images
+texts = ["Point to the " + example["name"] for example in data]
+images_list = [[example["image"]] for example in data]
 
 # Process the batch inputs
 inputs = process_batch(processor, texts, images_list)
@@ -130,16 +140,20 @@ output = model.generate_from_batch(
         max_new_tokens=200,
         stop_sequences=["<|endoftext|>"],
         eos_token_id=processor.tokenizer.eos_token_id,
-        pad_token_id=processor.tokenizer.pad_token_id
+        pad_token_id=processor.tokenizer.pad_token_id,
     ),
-    tokenizer=processor.tokenizer
+    tokenizer=processor.tokenizer,
 )
 
-generated_texts = processor.tokenizer.batch_decode(output[:, inputs['input_ids'].size(1):], skip_special_tokens=True)
+generated_texts = processor.tokenizer.batch_decode(
+    output[:, inputs["input_ids"].size(1) :], skip_special_tokens=True
+)
 for prompt, text in zip(texts, generated_texts):
     print(f"\nPrompt: {prompt}")
     print(f"Response: {text}")
 
 # print ground truth points, normalized to the image size
 for i, example in enumerate(data):
-    print(f"Example {i+1}: {[p / r for p, r in zip(example['point'], example['resolution'])]}")
+    print(
+        f"Example {i+1}: {[p / r for p, r in zip(example['point'], example['resolution'])]}"
+    )
