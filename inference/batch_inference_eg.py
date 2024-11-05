@@ -19,7 +19,7 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto",
 )
 
-# load 4 randome examples from the dataset
+# load 4 random examples from the dataset
 data = load_dataset("agentsea/tide-ui", split="train", num_proc=8)
 data = data.shuffle(seed=42).select(range(4))
 
@@ -34,42 +34,11 @@ def process_batch(processor: AutoProcessor,
         images_list: List of lists of PIL images to process
 
     Returns:
-        Dict mapping input names to batched tensors ready for model input
+        Dict with padded input_ids, images, image_input_idx, image_masks.
     """
     batch_size = len(texts)
-    tokens_list = []
-    for text in texts:
-        tokens = processor.tokenizer.encode(
-            " "
-            + "User: "
-            + text
-            + " Assistant:",  # assuming always_start_with_space=True
-            add_special_tokens=False,
-        )
-        tokens_list.append(tokens)
-    # Process images
-    images_arrays_list = []
-    image_idxs_list = []
-    for images in images_list:
-        if images:
-            image_arrays = []
-            for image in images:
-                if isinstance(image, Image.Image):
-                    image = image.convert("RGB")
-                    image = ImageOps.exif_transpose(image)
-                    image_arrays.append(np.array(image))
-                else:
-                    assert len(image.shape) == 3 and image.shape[-1] == 3
-                    image_arrays.append(image.astype(np.uint8))
-            images_arrays_list.append(image_arrays)
-            # For now only support inserting images at the start
-            image_idx = [-1] * len(image_arrays)
-            image_idxs_list.append(image_idx)
-        else:
-            images_arrays_list.append(None)
-            image_idxs_list.append(None)
-
-    # Define image processing keyword arguments
+    assert batch_size == len(images_list), "Number of texts and images must match"
+    # define image processing kwargs
     images_kwargs = {
         "max_crops": 12,
         "overlap_margins": [4, 4],
@@ -80,18 +49,47 @@ def process_batch(processor: AutoProcessor,
         "image_padding_mask": True,
     }
 
-    # Process each example individually
+    # process texts
+    tokens_list = []
+    for text in texts:
+        tokens = processor.tokenizer.encode(
+            " " # assuming always_start_with_space=True
+            + "User: "
+            + text
+            + " Assistant:",
+            add_special_tokens=False,
+        )
+        tokens_list.append(tokens)
+
+    # process images
+    images_arrays_list = []
+    image_idxs_list = []
+    for images in images_list:
+        if images:
+            image_arrays = []
+            for image in images:
+                assert isinstance(image, Image.Image), "All images must be PIL images"
+                image = image.convert("RGB")
+                image = ImageOps.exif_transpose(image)
+                image_arrays.append(np.array(image))
+            images_arrays_list.append(image_arrays)
+            image_idx = [-1] * len(image_arrays)
+            image_idxs_list.append(image_idx)
+        else:
+            images_arrays_list.append(None)
+            image_idxs_list.append(None)
+
+    # multimodal preprocess each example
     outputs_list = []
     for i in range(batch_size):
         tokens = tokens_list[i]
         images = images_arrays_list[i]
         image_idx = image_idxs_list[i]
-
         out = processor.image_processor.multimodal_preprocess(
             images=images,
             image_idx=image_idx,
             tokens=np.asarray(tokens).astype(np.int32),
-            sequence_length=1536,  # or any appropriate sequence length
+            sequence_length=1536,
             image_patch_token_id=processor.special_token_ids["<im_patch>"],
             image_col_token_id=processor.special_token_ids["<im_col>"],
             image_start_token_id=processor.special_token_ids["<im_start>"],
@@ -100,7 +98,7 @@ def process_batch(processor: AutoProcessor,
         )
         outputs_list.append(out)
 
-    # Collate outputs into batched tensors
+    # collate outputs into batched tensors, with added padding
     batch_outputs = {}
     for key in outputs_list[0].keys():
         tensors = [torch.from_numpy(out[key]) for out in outputs_list]
@@ -108,17 +106,15 @@ def process_batch(processor: AutoProcessor,
             tensors, batch_first=True, padding_value=-1
         )
 
-    # Prepend BOS token
-    bos = processor.tokenizer.bos_token_id or processor.tokenizer.eos_token_id
+    # prepend BOS token
     batch_outputs["input_ids"] = torch.nn.functional.pad(
-        batch_outputs["input_ids"], (1, 0), value=bos
+        batch_outputs["input_ids"], (1, 0), value=processor.tokenizer.eos_token_id # use eos token as bos token
     )
-    if "image_input_idx" in batch_outputs:
-        # Shift image input indices because of BOS token
-        image_input_idx = batch_outputs["image_input_idx"]
-        batch_outputs["image_input_idx"] = torch.where(
-            image_input_idx < 0, image_input_idx, image_input_idx + 1
-        )
+    # shift image input indices because of BOS token
+    image_input_idx = batch_outputs["image_input_idx"]
+    batch_outputs["image_input_idx"] = torch.where(
+        image_input_idx < 0, image_input_idx, image_input_idx + 1
+    )
 
     return batch_outputs
 
