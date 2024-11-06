@@ -1,9 +1,10 @@
+from typing import Dict, List
+
 import numpy as np
 import torch
 from datasets import load_dataset
 from PIL import Image, ImageOps
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig
-from typing import List, Dict
 
 processor = AutoProcessor.from_pretrained(
     "allenai/Molmo-7B-D-0924",
@@ -23,9 +24,10 @@ model = AutoModelForCausalLM.from_pretrained(
 data = load_dataset("agentsea/tide-ui", split="train", num_proc=8)
 data = data.shuffle(seed=42).select(range(4))
 
-def process_batch(processor: AutoProcessor, 
-                 texts: List[str], 
-                 images_list: List[List[Image.Image]]) -> Dict[str, torch.Tensor]:
+
+def process_batch(
+    processor: AutoProcessor, texts: List[str], images_list: List[List[Image.Image]]
+) -> Dict[str, torch.Tensor]:
     """Process a batch of texts and images for model input.
 
     Args:
@@ -53,7 +55,7 @@ def process_batch(processor: AutoProcessor,
     tokens_list = []
     for text in texts:
         tokens = processor.tokenizer.encode(
-            " " # assuming always_start_with_space=True
+            " "  # assuming always_start_with_space=True
             + "User: "
             + text
             + " Assistant:",
@@ -108,7 +110,9 @@ def process_batch(processor: AutoProcessor,
 
     # prepend BOS token
     batch_outputs["input_ids"] = torch.nn.functional.pad(
-        batch_outputs["input_ids"], (1, 0), value=processor.tokenizer.eos_token_id # use eos token as bos token
+        batch_outputs["input_ids"],
+        (1, 0),
+        value=processor.tokenizer.eos_token_id,  # use eos token as bos token
     )
     # shift image input indices because of BOS token
     image_input_idx = batch_outputs["image_input_idx"]
