@@ -123,13 +123,12 @@ def process_batch(processor: AutoProcessor,
 texts = ["Point to the " + example["name"] for example in data]
 images_list = [[example["image"]] for example in data]
 
-# Process the batch inputs
 inputs = process_batch(processor, texts, images_list)
 
-# Move inputs to the correct device
+# move inputs to device
 inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
-# Generate outputs
+# batch generate
 output = model.generate_from_batch(
     inputs,
     GenerationConfig(
@@ -141,14 +140,15 @@ output = model.generate_from_batch(
     tokenizer=processor.tokenizer,
 )
 
+# batch decode
 generated_texts = processor.tokenizer.batch_decode(
     output[:, inputs["input_ids"].size(1) :], skip_special_tokens=True
 )
+
 for prompt, text in zip(texts, generated_texts):
     print(f"\nPrompt: {prompt}")
     print(f"Response: {text}")
 
-# print ground truth points, normalized to the image size
 for i, example in enumerate(data):
     print(
         f"Example {i+1}: {[p / r for p, r in zip(example['point'], example['resolution'])]}"
