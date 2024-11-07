@@ -6,7 +6,7 @@ from datasets import load_dataset
 from PIL import Image, ImageOps
 from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingArguments
 
-from .utils import normalize_point, point_to_xml
+from utils import normalize_point, point_to_xml
 
 
 def process_batch(
@@ -130,29 +130,46 @@ def process_batch(
     return batch_outputs
 
 
-def data_collator(
-    dataset: List[Dict], processor: AutoProcessor
-) -> Dict[str, torch.Tensor]:
-    """Collates dataset examples into batched model inputs.
+class DataCollator:
+    """A data collator class for batching dataset examples into model inputs.
+
+    This collator processes a list of dataset examples containing images, names and points
+    into batched tensors suitable for model training. It formats prompts and answers,
+    processes images, and uses the processor to convert everything into model inputs.
 
     Args:
-        dataset: Dataset containing examples with 'image', 'name', and 'point' fields.
-        processor: Processor for converting text and images into model inputs.
+        processor (AutoProcessor): The processor to use for converting text and images
+            into model inputs.
 
-    Returns:
-        dict: Batched inputs with stacked tensors for model training, containing keys
-            from the processor outputs with corresponding stacked tensor values.
+    Attributes:
+        processor (AutoProcessor): The stored processor instance.
     """
-    # format images, prompts and answers
-    prompts = ["Point to the " + row["name"] for row in dataset]
-    answers = [
-        point_to_xml(normalize_point(row["point"], row["image"].size), row["name"])
-        for row in dataset
-    ]
-    images_list = [[row["image"]] for row in dataset]
-    # batch process
-    batch_outputs = process_batch(processor, images_list, prompts, answers)
-    return batch_outputs
+
+    def __init__(self, processor: AutoProcessor):
+        self.processor = processor
+
+    def __call__(self, dataset: List[Dict]) -> Dict[str, torch.Tensor]:
+        """Collates dataset examples into batched model inputs.
+
+        Args:
+            dataset (List[Dict]): List of dataset examples, where each example is a dict
+                containing 'image', 'name', and 'point' fields.
+
+        Returns:
+            Dict[str, torch.Tensor]: Batched inputs with stacked tensors for model training,
+                containing keys from the processor outputs with corresponding stacked tensor
+                values.
+        """
+        # format images, prompts and answers
+        prompts = ["Point to the " + row["name"] for row in dataset]
+        answers = [
+            point_to_xml(normalize_point(row["point"], row["image"].size), row["name"])
+            for row in dataset
+        ]
+        images_list = [[row["image"]] for row in dataset]
+        # batch process
+        batch_outputs = process_batch(self.processor, images_list, prompts, answers)
+        return batch_outputs
 
 
 def train() -> None:
@@ -171,6 +188,8 @@ def train() -> None:
     # TODO: add more training args
     training_args = TrainingArguments(
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
+        per_device_train_batch_size=1,
+        remove_unused_columns=False,
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
@@ -183,7 +202,7 @@ def train() -> None:
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        data_collator=data_collator(processor=processor),
+        data_collator=DataCollator(processor),
     )
 
     trainer.train()
