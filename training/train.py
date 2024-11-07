@@ -11,9 +11,9 @@ from .utils import normalize_point, point_to_xml
 
 def process_batch(
     processor: AutoProcessor,
-    prompts: List[str],
-    answers: List[str],
     images_list: List[List[Image.Image]],
+    prompts: List[str],
+    answers: List[str] = [],
 ) -> Dict[str, torch.Tensor]:
     """Process a batch of prompts, answers and images for model input.
 
@@ -29,7 +29,7 @@ def process_batch(
     batch_size = len(prompts)
     assert batch_size == len(
         answers
-    ), "Number of prompts, answers, and image lists must match"
+    ) or len(answers) == 0, "The answers list must be empty or have the same length as the prompts list"
     assert batch_size == len(
         images_list
     ), "Number of prompts, answers, and image lists must match"
@@ -128,14 +128,15 @@ def data_collator(dataset, processor):
         dict: Batched inputs with stacked tensors for model training, containing keys
             from the processor outputs with corresponding stacked tensor values.
     """
-    # get texts and images
+    # format images, prompts and answers
     prompts = ["Point to the " + row["name"] for row in dataset]
     answers = [
         point_to_xml(normalize_point(row["point"], row["image"].size), row["name"])
         for row in dataset
     ]
     images_list = [[row["image"]] for row in dataset]
-    batch_outputs = process_batch(processor, prompts, answers, images_list)
+    # batch process
+    batch_outputs = process_batch(processor, images_list, prompts, answers)
     return batch_outputs
 
 
