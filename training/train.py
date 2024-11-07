@@ -46,16 +46,29 @@ def process_batch(
 
     # process texts
     tokens_list = []
-    for prompt, answer in zip(prompts, answers):
-        tokens = processor.tokenizer.encode(
-            " "  # assuming always_start_with_space=True
-            + "User: "
-            + prompt
-            + " Assistant:"
-            + answer,
-            add_special_tokens=False,
-        )
-        tokens_list.append(tokens)
+    if len(answers) == 0:
+        # no answers provided, only encode prompts
+        for prompt in prompts:
+            tokens = processor.tokenizer.encode(
+                " "  # assuming always_start_with_space=True
+                + "User: "
+                + prompt
+                + " Assistant:",
+                add_special_tokens=False,
+            )
+            tokens_list.append(tokens)
+    else:
+        # encode prompts with answers
+        for prompt, answer in zip(prompts, answers):
+            tokens = processor.tokenizer.encode(
+                " "  # assuming always_start_with_space=True
+                + "User: "
+                + prompt
+                + " Assistant:"
+                + answer,
+                add_special_tokens=False,
+            )
+            tokens_list.append(tokens)
 
     # process images
     images_arrays_list = []

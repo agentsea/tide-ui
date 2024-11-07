@@ -26,22 +26,29 @@ data = data.shuffle(seed=42).select(range(4))
 
 
 def process_batch(
-    processor: AutoProcessor, texts: List[str], images_list: List[List[Image.Image]]
+    processor: AutoProcessor,
+    images_list: List[List[Image.Image]],
+    prompts: List[str],
+    answers: List[str] = [],
 ) -> Dict[str, torch.Tensor]:
-    """Process a batch of texts and images for model input.
-
-    TODO: update this func to be the same as the training one
+    """Process a batch of prompts, answers and images for model input.
 
     Args:
         processor: The model processor for tokenization and image processing
-        texts: List of text prompts to process
+        prompts: List of text prompts to process
+        answers: List of text answers to process
         images_list: List of lists of PIL images to process
 
     Returns:
         Dict with padded input_ids, images, image_input_idx, image_masks.
     """
-    batch_size = len(texts)
-    assert batch_size == len(images_list), "Number of texts and images must match"
+    batch_size = len(prompts)
+    assert (
+        batch_size == len(answers) or len(answers) == 0
+    ), "The answers list must be empty or have the same length as the prompts list"
+    assert batch_size == len(
+        images_list
+    ), "Number of prompts, answers, and image lists must match"
     # define image processing kwargs
     images_kwargs = {
         "max_crops": 12,
@@ -55,12 +62,13 @@ def process_batch(
 
     # process texts
     tokens_list = []
-    for text in texts:
+    for prompt, answer in zip(prompts, answers):
         tokens = processor.tokenizer.encode(
             " "  # assuming always_start_with_space=True
             + "User: "
-            + text
-            + " Assistant:",
+            + prompt
+            + " Assistant:"
+            + answer,
             add_special_tokens=False,
         )
         tokens_list.append(tokens)
