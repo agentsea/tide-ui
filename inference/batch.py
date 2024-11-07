@@ -62,16 +62,29 @@ def process_batch(
 
     # process texts
     tokens_list = []
-    for prompt, answer in zip(prompts, answers):
-        tokens = processor.tokenizer.encode(
-            " "  # assuming always_start_with_space=True
-            + "User: "
-            + prompt
-            + " Assistant:"
-            + answer,
-            add_special_tokens=False,
-        )
-        tokens_list.append(tokens)
+    if len(answers) == 0:
+        # no answers provided, only encode prompts
+        for prompt in prompts:
+            tokens = processor.tokenizer.encode(
+                " "  # assuming always_start_with_space=True
+                + "User: "
+                + prompt
+                + " Assistant:",
+                add_special_tokens=False,
+            )
+            tokens_list.append(tokens)
+    else:
+        # encode prompts with answers
+        for prompt, answer in zip(prompts, answers):
+            tokens = processor.tokenizer.encode(
+                " "  # assuming always_start_with_space=True
+                + "User: "
+                + prompt
+                + " Assistant:"
+                + answer,
+                add_special_tokens=False,
+            )
+            tokens_list.append(tokens)
 
     # process images
     images_arrays_list = []
@@ -134,10 +147,10 @@ def process_batch(
 
 
 # `process_batch` expects a list of texts and a **list of lists** of images
-texts = ["Point to the " + example["name"] for example in data]
+prompts = ["Point to the " + example["name"] for example in data]
 images_list = [[example["image"]] for example in data]
 
-inputs = process_batch(processor, texts, images_list)
+inputs = process_batch(processor, images_list, prompts)
 
 # move inputs to device
 inputs = {k: v.to(model.device) for k, v in inputs.items()}
@@ -159,7 +172,7 @@ generated_texts = processor.tokenizer.batch_decode(
     output[:, inputs["input_ids"].size(1) :], skip_special_tokens=True
 )
 
-for prompt, text in zip(texts, generated_texts):
+for prompt, text in zip(prompts, generated_texts):
     print(f"\nPrompt: {prompt}")
     print(f"Response: {text}")
 
