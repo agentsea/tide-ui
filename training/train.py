@@ -27,9 +27,9 @@ def process_batch(
         Dict with padded input_ids, images, image_input_idx, image_masks.
     """
     batch_size = len(prompts)
-    assert batch_size == len(
-        answers
-    ) or len(answers) == 0, "The answers list must be empty or have the same length as the prompts list"
+    assert (
+        batch_size == len(answers) or len(answers) == 0
+    ), "The answers list must be empty or have the same length as the prompts list"
     assert batch_size == len(
         images_list
     ), "Number of prompts, answers, and image lists must match"
@@ -117,7 +117,9 @@ def process_batch(
     return batch_outputs
 
 
-def data_collator(dataset, processor):
+def data_collator(
+    dataset: List[Dict], processor: AutoProcessor
+) -> Dict[str, torch.Tensor]:
     """Collates dataset examples into batched model inputs.
 
     Args:
