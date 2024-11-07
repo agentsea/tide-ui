@@ -30,6 +30,8 @@ def process_batch(
 ) -> Dict[str, torch.Tensor]:
     """Process a batch of texts and images for model input.
 
+    TODO: update this func to be the same as the training one
+
     Args:
         processor: The model processor for tokenization and image processing
         texts: List of text prompts to process
