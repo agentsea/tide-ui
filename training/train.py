@@ -5,6 +5,7 @@ import torch
 from datasets import load_dataset
 from PIL import Image, ImageOps
 from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingArguments
+from accelerate import Accelerator
 
 from utils import normalize_point, point_to_xml
 
@@ -198,6 +199,8 @@ def train() -> None:
     model = AutoModelForCausalLM.from_pretrained(
         model_name, trust_remote_code=True, torch_dtype=torch.float32
     )
+    accelerator = Accelerator()
+    model = accelerator.prepare(model)
     trainer = Trainer(
         model=model,
         args=training_args,
