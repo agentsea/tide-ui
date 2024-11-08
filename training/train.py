@@ -5,7 +5,6 @@ import torch
 from datasets import load_dataset
 from PIL import Image, ImageOps
 from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingArguments
-from accelerate import Accelerator
 
 from utils import normalize_point, point_to_xml
 
@@ -130,18 +129,12 @@ def process_batch(
 
     # add labels
     batch_outputs["labels"] = batch_outputs["input_ids"].clone()
-    batch_outputs["labels"][batch_outputs["labels"] == processor.tokenizer.pad_token_id] = -100 # mask padding tokens
-    # mask out the prompt tokens (assuming prompt tokens are before the answer tokens)
-    for i in range(len(tokens_list)):
-        prompt_length = len(processor.tokenizer.encode(
-            " " + "User: " + prompts[i] + " Assistant:",
-            add_special_tokens=False,
-        ))
-        batch_outputs["labels"][i, :prompt_length + 1] = -100  # +1 for the BOS token
+    # mask padding tokens
+    batch_outputs["labels"][batch_outputs["labels"] == processor.tokenizer.pad_token_id] = -100
+    # mask special tokens
     special_token_ids = list(processor.special_token_ids.values())
     for special_id in special_token_ids:
         batch_outputs["labels"][batch_outputs["labels"] == special_id] = -100
-    print("Unique values in labels:", torch.unique(batch_outputs["labels"]))
     return batch_outputs
 
 
@@ -205,6 +198,10 @@ def train() -> None:
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
         per_device_train_batch_size=1,
         remove_unused_columns=False,
+        fsdp="full_shard auto_wrap",
+        fsdp_config={
+            "transformer_layer_cls_to_wrap": "MolmoSequentialBlock",
+        },
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
@@ -213,8 +210,6 @@ def train() -> None:
     model = AutoModelForCausalLM.from_pretrained(
         model_name, trust_remote_code=True, torch_dtype=torch.float32
     )
-    accelerator = Accelerator()
-    model = accelerator.prepare(model)
     trainer = Trainer(
         model=model,
         args=training_args,
