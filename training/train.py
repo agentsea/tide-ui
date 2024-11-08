@@ -113,7 +113,7 @@ def process_batch(
     for key in outputs_list[0].keys():
         tensors = [torch.from_numpy(out[key]) for out in outputs_list]
         batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(
-            tensors, batch_first=True, padding_value=-1
+            tensors, batch_first=True, padding_value=processor.tokenizer.pad_token_id
         )
 
     # prepend BOS token
@@ -128,6 +128,20 @@ def process_batch(
         image_input_idx < 0, image_input_idx, image_input_idx + 1
     )
 
+    # add labels
+    batch_outputs["labels"] = batch_outputs["input_ids"].clone()
+    batch_outputs["labels"][batch_outputs["labels"] == processor.tokenizer.pad_token_id] = -100 # mask padding tokens
+    # mask out the prompt tokens (assuming prompt tokens are before the answer tokens)
+    for i in range(len(tokens_list)):
+        prompt_length = len(processor.tokenizer.encode(
+            " " + "User: " + prompts[i] + " Assistant:",
+            add_special_tokens=False,
+        ))
+        batch_outputs["labels"][i, :prompt_length + 1] = -100  # +1 for the BOS token
+    special_token_ids = list(processor.special_token_ids.values())
+    for special_id in special_token_ids:
+        batch_outputs["labels"][batch_outputs["labels"] == special_id] = -100
+    print("Unique values in labels:", torch.unique(batch_outputs["labels"]))
     return batch_outputs
 
 

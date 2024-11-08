@@ -128,7 +128,7 @@ def process_batch(
     for key in outputs_list[0].keys():
         tensors = [torch.from_numpy(out[key]) for out in outputs_list]
         batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(
-            tensors, batch_first=True, padding_value=-1
+            tensors, batch_first=True, padding_value=processor.tokenizer.pad_token_id
         )
 
     # prepend BOS token
