@@ -131,7 +131,7 @@ def process_batch(
     batch_outputs["labels"] = batch_outputs["input_ids"].clone()
     # mask padding tokens
     batch_outputs["labels"][
-        batch_outputs["labels"] == processor.tokenizer.pad_token_id
+        batch_outputs["labels"] == processor.tokenizer.pad_token_id # TODO: should this be changed to -1?
     ] = -100
     # mask special tokens
     special_token_ids = list(processor.special_token_ids.values())
