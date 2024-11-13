@@ -11,9 +11,11 @@ from tqdm import tqdm
 from utils import image_to_b64, calculate_normalized_distance
 from typing import List
 
+
 class Point(BaseModel):
     x: float | int
     y: float | int
+
 
 PROMPT_TEMPLATE = """Detect the {element} in the image. Return its position using the following JSON format:
 
@@ -30,7 +32,6 @@ Full schema:
 Do not use code blocks. Return the JSON string only."""
 
 MOLMO_PROMPT_TEMPLATE = """Point to {element}"""
-
 
 
 def extract_point_from_molmo_response(response: str, resolution: List[int]) -> Point:
@@ -71,8 +72,6 @@ def parse_args():
         help="Output file for predictions",
     )
     return parser.parse_args()
-
-
 
 
 if __name__ == "__main__":
@@ -119,7 +118,11 @@ if __name__ == "__main__":
             image = image.convert("RGB")
         img_b64 = image_to_b64(image, image_format="JPEG")
 
-        prompt = MOLMO_PROMPT_TEMPLATE.format(element=example["name"]) if args.model == "hosted_vllm/allenai/Molmo-7B-D-0924" else PROMPT_TEMPLATE.format(element=example["name"], schema=schema)
+        prompt = (
+            MOLMO_PROMPT_TEMPLATE.format(element=example["name"])
+            if args.model == "hosted_vllm/allenai/Molmo-7B-D-0924"
+            else PROMPT_TEMPLATE.format(element=example["name"], schema=schema)
+        )
 
         thread = RoleThread()
         thread.post(
@@ -135,7 +138,9 @@ if __name__ == "__main__":
                 expect = Point
             response = router.chat(thread, expect=expect, retries=0)
             if args.model == "hosted_vllm/allenai/Molmo-7B-D-0924":
-                point = extract_point_from_molmo_response(response.msg.text, example["resolution"])
+                point = extract_point_from_molmo_response(
+                    response.msg.text, example["resolution"]
+                )
             else:
                 point = response.parsed
             # rescale if claude

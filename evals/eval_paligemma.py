@@ -14,6 +14,7 @@ from utils import calculate_normalized_distance
 from typing import List
 import re
 
+
 def extract_coords(input_str: str) -> List[int]:
     pattern = r"<loc(\d{4})>"
     try:
@@ -174,6 +175,11 @@ if __name__ == "__main__":
     with open(args.output_dir + output_file_name, "w") as f:
         json.dump({"predictions": predictions, "targets": targets}, f)
 
-    distances = list(map(lambda x: calculate_normalized_distance(x[0], x[1], x[2]), zip(predictions, targets, resolutions)))
+    distances = list(
+        map(
+            lambda x: calculate_normalized_distance(x[0], x[1], x[2]),
+            zip(predictions, targets, resolutions),
+        )
+    )
 
     print(f"Mean std distance: {sum(distances) / len(distances)}")

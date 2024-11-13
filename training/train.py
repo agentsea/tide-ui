@@ -98,7 +98,7 @@ def process_batch(
             images=images,
             image_idx=image_idx,
             tokens=np.asarray(tokens).astype(np.int32),
-            sequence_length=64, # we can use lower sequence length here, compared to https://huggingface.co/allenai/Molmo-7B-D-0924/blob/1721478b71306fb7dc671176d5c204dc7a4d27d7/preprocessing_molmo.py#L77
+            sequence_length=64,  # we can use lower sequence length here, compared to https://huggingface.co/allenai/Molmo-7B-D-0924/blob/1721478b71306fb7dc671176d5c204dc7a4d27d7/preprocessing_molmo.py#L77
             image_patch_token_id=processor.special_token_ids["<im_patch>"],
             image_col_token_id=processor.special_token_ids["<im_col>"],
             image_start_token_id=processor.special_token_ids["<im_start>"],
@@ -130,7 +130,9 @@ def process_batch(
     # add labels
     batch_outputs["labels"] = batch_outputs["input_ids"].clone()
     # mask padding tokens
-    batch_outputs["labels"][batch_outputs["labels"] == processor.tokenizer.pad_token_id] = -100
+    batch_outputs["labels"][
+        batch_outputs["labels"] == processor.tokenizer.pad_token_id
+    ] = -100
     # mask special tokens
     special_token_ids = list(processor.special_token_ids.values())
     for special_id in special_token_ids:
