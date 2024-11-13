@@ -1,4 +1,5 @@
 from typing import Dict, List
+import os
 
 import numpy as np
 import torch
@@ -8,6 +9,7 @@ from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingA
 
 from utils import normalize_point, point_to_xml
 
+os.environ["WANDB_PROJECT"]="molmo-tideui"
 
 def process_batch(
     processor: AutoProcessor,
@@ -196,9 +198,7 @@ def train() -> None:
     """
     dataset = load_dataset("agentsea/tide-ui")
     # TODO:
-    # - set best optimizer, lr and scheduler
-    # - add logs
-    # - add wandb
+    # - add val loss?
     training_args = TrainingArguments(
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
         per_device_train_batch_size=2,
@@ -208,6 +208,13 @@ def train() -> None:
         fsdp_config={
             "transformer_layer_cls_to_wrap": "MolmoSequentialBlock",
         },
+        dataloader_num_workers=16,
+        logging_steps=1,
+        report_to="wandb",
+        # TODO: find best lr, optim and scheduler
+        learning_rate=3e-5,
+        optim="adamw_torch",
+        lr_scheduler_type="cosine",
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
