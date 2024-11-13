@@ -200,7 +200,7 @@ def train() -> None:
         remove_unused_columns=False,
         fsdp="full_shard auto_wrap",
         fsdp_config={
-            "transformer_layer_cls_to_wrap": "MolmoSequentialBlock,ResidualAttentionBlock,MultiHeadDotProductAttention,ViTMLP,RotaryEmbedding,Embedding,MLP",
+            "transformer_layer_cls_to_wrap": "MolmoSequentialBlock",
         },
     )
     model_name = "allenai/Molmo-7B-D-0924"
