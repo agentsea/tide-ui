@@ -195,11 +195,15 @@ def train() -> None:
         None: The trained model is saved to the specified output directory.
     """
     dataset = load_dataset("agentsea/tide-ui")
-    # TODO: add more training args
+    # TODO:
+    # - set best optimizer, lr and scheduler
+    # - add logs
+    # - add wandb
     training_args = TrainingArguments(
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
-        per_device_train_batch_size=1,
+        per_device_train_batch_size=2,
         remove_unused_columns=False,
+        bf16=True,
         fsdp="full_shard auto_wrap",
         fsdp_config={
             "transformer_layer_cls_to_wrap": "MolmoSequentialBlock",
