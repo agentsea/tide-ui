@@ -1,15 +1,15 @@
-from typing import Dict, List
 import os
+from typing import Dict, List
 
 import numpy as np
 import torch
 from datasets import load_dataset
 from PIL import Image, ImageOps
 from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingArguments
-
 from utils import normalize_point, point_to_xml
 
-os.environ["WANDB_PROJECT"]="molmo-tideui"
+os.environ["WANDB_PROJECT"] = "molmo-tideui"
+
 
 def process_batch(
     processor: AutoProcessor,
@@ -114,7 +114,9 @@ def process_batch(
     for key in outputs_list[0].keys():
         tensors = [torch.from_numpy(out[key]) for out in outputs_list]
         batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(
-            tensors, batch_first=True, padding_value=-1 # TODO: is there a bug in the pad token? https://x.com/danielhanchen/status/1856442699689414970
+            tensors,
+            batch_first=True,
+            padding_value=-1,  # TODO: is there a bug in the pad token? https://x.com/danielhanchen/status/1856442699689414970
         )
 
     # prepend BOS token
@@ -132,9 +134,7 @@ def process_batch(
     # add labels
     batch_outputs["labels"] = batch_outputs["input_ids"].clone()
     # mask padding tokens
-    batch_outputs["labels"][
-        batch_outputs["labels"] == -1
-    ] = -100
+    batch_outputs["labels"][batch_outputs["labels"] == -1] = -100
     # mask special tokens
     special_token_ids = list(processor.special_token_ids.values())
     for special_id in special_token_ids:
