@@ -225,6 +225,7 @@ def train() -> None:
         save_total_limit=1,
         hub_private_repo=True,
         hub_model_id="agentsea/molmo-7b-ft-tideui",
+        push_to_hub=True,
         # opt
         # TODO: find best lr, optim and scheduler
         learning_rate=3e-5,
@@ -249,6 +250,7 @@ def train() -> None:
     )
 
     trainer.train()
+    trainer.push_to_hub()
 
 
 if __name__ == "__main__":
