@@ -211,10 +211,17 @@ def train() -> None:
         dataloader_num_workers=16,
         logging_steps=1,
         report_to="wandb",
+        save_steps=500,
+        save_total_limit=1,
+        hub_private_repo=True,
+        hub_model_id="agentsea/molmo-7b-ft-tideui"
         # TODO: find best lr, optim and scheduler
         learning_rate=3e-5,
         optim="adamw_torch",
         lr_scheduler_type="cosine",
+        weight_decay=0.000001,
+        warmup_steps=2,
+        num_train_epochs=3,
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
