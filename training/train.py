@@ -211,7 +211,7 @@ def train() -> None:
         metric_for_best_model="eval_loss",
         # eval
         per_device_eval_batch_size=2,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         eval_steps=100,
         # fsdp
         fsdp="full_shard auto_wrap",
