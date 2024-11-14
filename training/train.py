@@ -196,32 +196,44 @@ def train() -> None:
     Returns:
         None: The trained model is saved to the specified output directory.
     """
-    dataset = load_dataset("agentsea/tide-ui")
+    train_dataset = load_dataset("agentsea/tide-ui", split="train[:10%]")
+    eval_dataset = load_dataset("agentsea/tide-ui", split="validation[:10%]")
     # TODO:
     # - add val loss?
     training_args = TrainingArguments(
+        # storage
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
+        # train
         per_device_train_batch_size=2,
-        remove_unused_columns=False,
+        num_train_epochs=3,
         bf16=True,
+        remove_unused_columns=False,
+        dataloader_num_workers=16,
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        # eval
+        per_device_eval_batch_size=2,
+        evaluation_strategy="steps",
+        eval_steps=100,
+        # fsdp
         fsdp="full_shard auto_wrap",
         fsdp_config={
             "transformer_layer_cls_to_wrap": "MolmoSequentialBlock",
         },
-        dataloader_num_workers=16,
+        # logging
         logging_steps=1,
         report_to="wandb",
         save_steps=500,
         save_total_limit=1,
         hub_private_repo=True,
         hub_model_id="agentsea/molmo-7b-ft-tideui"
+        # opt
         # TODO: find best lr, optim and scheduler
         learning_rate=3e-5,
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         weight_decay=0.000001,
         warmup_steps=2,
-        num_train_epochs=3,
     )
     model_name = "allenai/Molmo-7B-D-0924"
     processor = AutoProcessor.from_pretrained(
@@ -233,7 +245,8 @@ def train() -> None:
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"],
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=DataCollator(processor),
     )
 
