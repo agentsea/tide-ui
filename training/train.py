@@ -198,8 +198,6 @@ def train() -> None:
     """
     train_dataset = load_dataset("agentsea/tide-ui", split="train[:10%]")
     eval_dataset = load_dataset("agentsea/tide-ui", split="validation[:10%]")
-    # TODO:
-    # - add val loss?
     training_args = TrainingArguments(
         # storage
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
@@ -226,7 +224,7 @@ def train() -> None:
         save_steps=500,
         save_total_limit=1,
         hub_private_repo=True,
-        hub_model_id="agentsea/molmo-7b-ft-tideui"
+        hub_model_id="agentsea/molmo-7b-ft-tideui",
         # opt
         # TODO: find best lr, optim and scheduler
         learning_rate=3e-5,
