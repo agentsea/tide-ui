@@ -260,9 +260,9 @@ def train() -> None:
     processor.push_to_hub("agentsea/molmo-7b-ft-tideui", private=True)
     # upload modeling_molmo.py
     upload_file(
-        "modeling_molmo.py",
-        "agentsea/molmo-7b-ft-tideui",
-        "modeling_molmo.py",
+        path_or_fileobj="../training/modeling_molmo.py",
+        path_in_repo="modeling_molmo.py",
+        repo_id="agentsea/molmo-7b-ft-tideui",
     )
 
 
