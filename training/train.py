@@ -7,6 +7,7 @@ from datasets import load_dataset
 from PIL import Image, ImageOps
 from transformers import AutoModelForCausalLM, AutoProcessor, Trainer, TrainingArguments
 from utils import normalize_point, point_to_xml
+from huggingface_hub import upload_file
 
 os.environ["WANDB_PROJECT"] = "molmo-tideui"
 
@@ -241,6 +242,10 @@ def train() -> None:
     model = AutoModelForCausalLM.from_pretrained(
         model_name, trust_remote_code=True, torch_dtype=torch.float32
     )
+
+    # update AutoModelForCausalLM
+    model.config.auto_map["AutoModelForCausalLM"] = "agentsea/molmo-7b-ft-tideui--modeling_molmo.MolmoForCausalLM"
+
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -251,6 +256,12 @@ def train() -> None:
 
     trainer.train()
     trainer.push_to_hub()
+    # upload modeling_molmo.py
+    upload_file(
+        "modeling_molmo.py",
+        "agentsea/molmo-7b-ft-tideui",
+        "modeling_molmo.py",
+    )
 
 
 if __name__ == "__main__":
