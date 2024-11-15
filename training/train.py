@@ -235,16 +235,17 @@ def train() -> None:
         weight_decay=0.000001,
         warmup_steps=2,
     )
+
     model_name = "allenai/Molmo-7B-D-0924"
-    processor = AutoProcessor.from_pretrained(
-        model_name, trust_remote_code=True, torch_dtype=torch.float32
-    )
+    processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_name, trust_remote_code=True, torch_dtype=torch.float32
     )
 
     # update AutoModelForCausalLM
-    model.config.auto_map["AutoModelForCausalLM"] = "agentsea/molmo-7b-ft-tideui--modeling_molmo.MolmoForCausalLM"
+    model.config.auto_map["AutoModelForCausalLM"] = (
+        "agentsea/molmo-7b-ft-tideui--modeling_molmo.MolmoForCausalLM"
+    )
 
     trainer = Trainer(
         model=model,
@@ -256,7 +257,7 @@ def train() -> None:
 
     trainer.train()
     trainer.push_to_hub()
-    processor.push_to_hub()
+    processor.push_to_hub("agentsea/molmo-7b-ft-tideui", private=True)
     # upload modeling_molmo.py
     upload_file(
         "modeling_molmo.py",
