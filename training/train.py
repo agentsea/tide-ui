@@ -256,6 +256,7 @@ def train() -> None:
 
     trainer.train()
     trainer.push_to_hub()
+    processor.push_to_hub()
     # upload modeling_molmo.py
     upload_file(
         "modeling_molmo.py",
