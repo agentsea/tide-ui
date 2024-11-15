@@ -117,7 +117,7 @@ def process_batch(
         batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(
             tensors,
             batch_first=True,
-            padding_value=-1,  # TODO: is there a bug in the pad token? https://x.com/danielhanchen/status/1856442699689414970
+            padding_value=-1,  # TODO: is there a bug in the pad token? https://x.com/danielhanchen/status/1856442699689414970 maybe it's why it generates recursively
         )
 
     # prepend BOS token

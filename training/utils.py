@@ -25,4 +25,5 @@ def normalize_point(point: List[float], resolution: List[int]) -> List[float]:
     Returns:
         List[float]: Normalized coordinates as a list of floats.
     """
+    # TODO: fix this. Should be range between 0 and 100
     return [p / r for p, r in zip(point, resolution)]
