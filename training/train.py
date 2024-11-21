@@ -117,7 +117,7 @@ def process_batch(
         batch_outputs[key] = torch.nn.utils.rnn.pad_sequence(
             tensors,
             batch_first=True,
-            padding_value=-1,  # TODO: is there a bug in the pad token? https://x.com/danielhanchen/status/1856442699689414970 maybe it's why it generates recursively
+            padding_value=-1,
         )
 
     # prepend BOS token
@@ -234,7 +234,7 @@ def train() -> None:
         save_total_limit=1,
         hub_private_repo=True,
         hub_model_id="agentsea/molmo-7b-ft-tideui",
-        push_to_hub=True,
+        push_to_hub=False, # TODO: maybe revert this in full run
         # opt
         learning_rate=5e-5,
         optim="adamw_torch",
