@@ -222,7 +222,7 @@ def train() -> None:
         # logging
         logging_steps=1,
         report_to="wandb",
-        save_steps=500,
+        save_steps=1000,
         save_total_limit=1,
         hub_private_repo=True,
         hub_model_id="agentsea/molmo-7b-ft-tideui",
