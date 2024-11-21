@@ -208,6 +208,7 @@ def train() -> None:
         bf16=True,
         remove_unused_columns=False,
         dataloader_num_workers=16,
+        dataloader_pin_memory=True,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         # eval
@@ -228,12 +229,12 @@ def train() -> None:
         hub_model_id="agentsea/molmo-7b-ft-tideui",
         push_to_hub=True,
         # opt
-        # TODO: find best lr, optim and scheduler
-        learning_rate=2e-4,
+        learning_rate=5e-5,
         optim="adamw_torch",
-        lr_scheduler_type="linear",
-        weight_decay=0.01,
-        warmup_steps=5,
+        lr_scheduler_type="cosine",
+        warmup_ratio=0.1,
+        weight_decay=0.05,
+        max_grad_norm=1.0,
         seed=3407,
     )
 
