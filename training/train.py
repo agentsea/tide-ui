@@ -197,8 +197,15 @@ def train() -> None:
     Returns:
         None: The trained model is saved to the specified output directory.
     """
-    train_dataset = load_dataset("agentsea/tide-ui", split="train[:10%]")
-    eval_dataset = load_dataset("agentsea/tide-ui", split="validation[:10%]")
+    train_dataset = load_dataset("agentsea/tide-ui", split="train")
+    eval_dataset = load_dataset("agentsea/tide-ui", split="validation")
+    
+    # TODO: remove the following before full ft
+    train_dataset = train_dataset.shuffle(seed=3407).select(range(len(train_dataset) // 10))
+    eval_dataset = eval_dataset.shuffle(seed=3407).select(range(len(eval_dataset) // 10))
+    print(f"Training dataset size: {len(train_dataset)}")
+    print(f"Evaluation dataset size: {len(eval_dataset)}")
+
     training_args = TrainingArguments(
         # storage
         output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
