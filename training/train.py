@@ -229,11 +229,12 @@ def train() -> None:
         push_to_hub=True,
         # opt
         # TODO: find best lr, optim and scheduler
-        learning_rate=3e-5,
+        learning_rate=2e-4,
         optim="adamw_torch",
-        lr_scheduler_type="cosine",
-        weight_decay=0.000001,
-        warmup_steps=2,
+        lr_scheduler_type="linear",
+        weight_decay=0.01,
+        warmup_steps=5,
+        seed=3407,
     )
 
     model_name = "allenai/Molmo-7B-D-0924"
