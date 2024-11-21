@@ -236,7 +236,7 @@ def train() -> None:
         hub_model_id="agentsea/molmo-7b-ft-tideui",
         push_to_hub=False, # TODO: maybe revert this in full run
         # opt
-        learning_rate=2e-5,
+        learning_rate=1e-5,
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         warmup_ratio=0.1,
