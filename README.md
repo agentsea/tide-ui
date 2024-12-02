@@ -10,18 +10,34 @@
 
 # TideUI
 
-Data and tools to improve UI clicking.
+Data and tools to improve UI-specific clicking.
 
-This project is a follow-up on [WaveUI](https://github.com/agentsea/wave-ui).
+There are models today that perform well on the task of clicking on UI elements. Two of the main approaches that have been taken by language models are by detecting the elements with bounding boxes and with points. Both options have been proven to be paths towards high performance on generic UI clicking.
+
+However, for many use-cases, it's not necessary for a model to be performant in **any** UI, but, rather, in a specific UI. For examples, someone looking for flights might be satisfied with a model that performs well on the Google Flights UI.
+
+This project explores a pipeline to improve click models on specific UIs.
 
 ## Data
 
-The data used for this project is a subset of the [WaveUI dataset](https://huggingface.co/datasets/agentsea/wave-ui). It includes only the English examples of the dataset and the points were obtained by getting the center of the bounding boxes.
+The gathering of the data has two components:
+
+1. A process to capture screenshots of specific UI on various user stories.
+2. A process to annotate the elements in theses screenshots.
+
+For more information see [data/](./data/)
 
 ## Training
 
-We currently focus on [Molmo](https://molmo.allenai.org/blog). This model has already been fine-tuned on the pointing task. In this project, we further fine-tune the model to improve its preformance on UI settings.
+Among others, some of the best open-source models for clicking are:
+
+1. [Molmo](https://huggingface.co/allenai/Molmo-7B-D-0924) 
+2. [PaliGemma](https://huggingface.co/agentsea/paligemma-3b-ft-waveui-896)
+3. [Moondream](https://github.com/vikhyat/moondream) (in the next release)
+4. [ShowUI](https://github.com/showlab/ShowUI)
+
+We will experiment with these models to see which one is best fit for this specific use-case. We care about performance and cost/efficiency.
 
 ## Evaluation
 
-We evaluate the models using the test-split of the TideUI dataset. Specifically, we measure how distant each model's predictions are from the ground truth and normalize the distance usintg each image's diagonal length to accound for variations in resolution.
+TBD
