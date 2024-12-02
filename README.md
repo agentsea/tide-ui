@@ -41,3 +41,11 @@ We will experiment with these models to see which one is best fit for this speci
 ## Evaluation
 
 TBD
+
+
+## TODO
+
+- [ ] Get screenshots in full-screen.
+- [ ] Use OmniParser's YOLO model for automatic bounding boxes.
+- [ ] Use Sonnet 3.5 for automatic annotation
+- [ ] Repeat fine-tune with PaliGemma
