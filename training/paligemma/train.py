@@ -9,6 +9,7 @@ from transformers import (
 from peft import LoraConfig, get_peft_model
 from datasets import load_dataset
 
+# params
 device = "cuda" if torch.cuda.is_available() else "cpu"
 base_model_id = "agentsea/paligemma-3b-ft-waveui-896"
 lora_rank = 8
@@ -27,7 +28,7 @@ push_to_hub = False
 
 
 def point2pg_output(point, res):
-    """Convert to PaliGemma format: <locdddd><locddd><locddd><locddd> string"""
+    """Convert point to PaliGemma format: <locdddd><locddd><locddd><locddd> string"""
     x1, y1, x2, y2 = point
     width, height = res
     x1 = "<loc" + str(int(x1 / width * 1024)).zfill(4) + ">"
@@ -38,33 +39,20 @@ def point2pg_output(point, res):
 
 
 def collate_fn(examples):
-    image_token = "<image>"
-    bos_token = processor.tokenizer.bos_token
-
-    # Add image tokens and BOS token explicitly to the input text
-    texts = [
-        f"{image_token}{bos_token}detect {example['element_name']}"
-        for example in examples
-    ]
-    # texts = ["detect " + example["element_name"] for example in examples]
+    texts = ["detect " + example["element_name"] for example in examples]
     labels = [
         point2pg_output(example["bbox"], example["resolution"])
         + f" {example['element_name']}"
         for example in examples
     ]
     images = [example["image"] for example in examples]
-    # print(texts)
-    # print(labels)
-    # print(images)
     tokens = processor(
         text=texts,
         images=images,
         suffix=labels,
         return_tensors="pt",
         padding="longest",
-        # tokenize_newline_separately=False,
     )
-
     tokens = tokens.to(torch.bfloat16).to(device)
     return tokens
 
@@ -73,19 +61,6 @@ ds = load_dataset("agentsea/anchor")
 train_ds = ds["train"]
 
 processor = PaliGemmaProcessor.from_pretrained(base_model_id)
-
-# # Test the collate function with the first 3 examples
-# test_examples = [train_ds[i] for i in range(3)]
-
-# # Apply collate_fn to the test examples
-# test_batch = collate_fn(test_examples)
-
-
-# # Print some information about the generated batch to verify the output
-# print(test_batch.keys()) # Print the keys of the returned dictionary
-# print(test_batch["input_ids"].shape) # Print the shape of input_ids tensor
-# # Print the first few input ids
-# print(test_batch["input_ids"][0,:10])
 
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
@@ -133,6 +108,7 @@ training_args = TrainingArguments(
     dataloader_pin_memory=dataloader_pin_memory,
     report_to=None,
     hub_private_repo=True,
+    hub_model_id="agentsea/pg-airbnb-test"
 )
 
 trainer = Trainer(
