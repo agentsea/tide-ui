@@ -1,13 +1,15 @@
+import os
+
 import torch
+from datasets import load_dataset
+from peft import LoraConfig, get_peft_model
 from transformers import (
-    PaliGemmaProcessor,
-    PaliGemmaForConditionalGeneration,
     BitsAndBytesConfig,
+    PaliGemmaForConditionalGeneration,
+    PaliGemmaProcessor,
     Trainer,
     TrainingArguments,
 )
-from peft import LoraConfig, get_peft_model
-from datasets import load_dataset
 
 # params
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -25,6 +27,7 @@ save_steps = 2000
 save_total_limit = 1
 dataloader_pin_memory = False
 push_to_hub = False
+os.environ["WANDB_PROJECT"] = "pg-tideui"
 
 
 def point2pg_output(point, res):
@@ -89,7 +92,7 @@ model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
 
 training_args = TrainingArguments(
-    output_dir="./results",
+    output_dir="../../tmp/pg-airbnb-test",
     num_train_epochs=num_epochs,
     remove_unused_columns=False,
     per_device_train_batch_size=batch_size,
@@ -106,9 +109,10 @@ training_args = TrainingArguments(
     save_total_limit=save_total_limit,
     bf16=True,
     dataloader_pin_memory=dataloader_pin_memory,
-    report_to=None,
+    report_to="wandb",
+    run_name=f"pg-airbnb-test-{learning_rate}-{lora_rank}-{gradient_accumulation_steps}-{warmup_steps}-{weight_decay}-{adam_beta2}",
     hub_private_repo=True,
-    hub_model_id="agentsea/pg-airbnb-test"
+    hub_model_id="agentsea/pg-airbnb-test",
 )
 
 trainer = Trainer(
@@ -120,4 +124,4 @@ trainer = Trainer(
 
 trainer.train()
 
-trainer.push_to_hub("agentsea/pg-airbnb-test")
+trainer.push_to_hub()
