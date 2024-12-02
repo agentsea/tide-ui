@@ -1939,6 +1939,27 @@ wheels = [
 ]
 
 [[package]]
+name = "peft"
+version = "0.13.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "accelerate" },
+    { name = "huggingface-hub" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "psutil" },
+    { name = "pyyaml" },
+    { name = "safetensors" },
+    { name = "torch" },
+    { name = "tqdm" },
+    { name = "transformers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/97/e1/aab80b861b4c18e85482940d504b3a7ee525bdf6ed93a1a2871881a180f1/peft-0.13.2.tar.gz", hash = "sha256:0e0cbd40ebdf5fe4ea79f255880d02f96712d18899509369a2cc5768ad46d672", size = 350390 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/9d/5f95bfb298c8d3b4e3a107701f9a4e7774a0d4d1f8eb0c9d5420b80f7c9d/peft-0.13.2-py3-none-any.whl", hash = "sha256:d4e0951ec78eac11c45a051801c569913436888c578d48e5ce86996b715bc6ef", size = 320731 },
+]
+
+[[package]]
 name = "pillow"
 version = "10.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2889,6 +2910,7 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "mllm" },
     { name = "opencv-python" },
+    { name = "peft" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "tqdm" },
@@ -2906,6 +2928,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.26.2" },
     { name = "mllm", specifier = ">=0.1.46" },
     { name = "opencv-python", specifier = ">=4.10.0.84" },
+    { name = "peft", specifier = ">=0.13.2" },
     { name = "torch", specifier = "==2.4.0" },
     { name = "torchvision", specifier = ">=0.19.0" },
     { name = "tqdm", specifier = ">=4.66.6" },
