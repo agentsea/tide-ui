@@ -1,15 +1,12 @@
 # Data
 
-The dataset used in this project is a subset of the original [WaveUI dataset](https://github.com/agentsea/wave-ui). The dataset is stored as a new [TideUI dataset](https://huggingface.co/datasets/agentsea/tide-ui).
+There are two processes that are involved in the generation of the data for this projects:
 
-In order to obtain the TideUI dataset we:
+1. A process to capture screenshots of the UI.
+2. A process to annotate these screenshots.
 
-- Filtered-out all non-English examples from the WaveUI dataset.
-- Removed duplicate boxes within the same image group.
-- Converted the bounding boxes into points by taking the center-point of the box.
-- Kept only the `image`, `resolution`, `name`, `point` columns.
+For the former, one can run the `agentdesk.ipynb` notebook. This will launch a VM locally that will have a background loop that captures the screenshots.
 
+Once we have the screenshots, we can annotate them with the gradio app in `bounding_box_annotator.py`.
 
-## Replication
-
-The dataset can be reconstructed by running the `bb2points.py` script.
+The annotated images can then be processed into a HF dataset with `bb_preprocess.py`. An example dataset is currently hosted in [anchor](https://huggingface.co/datasets/agentsea/anchor) for the AirBnb interface.
