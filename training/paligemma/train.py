@@ -15,10 +15,10 @@ from transformers import (
 device = "cuda" if torch.cuda.is_available() else "cpu"
 base_model_id = "agentsea/paligemma-3b-ft-waveui-896"
 lora_rank = 16
-num_epochs = 4
+num_epochs = 2
 batch_size = 1
 learning_rate = 0.00001
-gradient_accumulation_steps = 8
+gradient_accumulation_steps = 4
 warmup_ratio = 0.10
 weight_decay = 0.01
 adam_beta2 = 0.999
@@ -110,7 +110,7 @@ training_args = TrainingArguments(
     bf16=True,
     dataloader_pin_memory=dataloader_pin_memory,
     report_to="wandb",
-    run_name=f"pg-airbnb-test-{learning_rate}-{lora_rank}-{gradient_accumulation_steps}-{warmup_steps}-{weight_decay}-{adam_beta2}",
+    run_name=f"pg-airbnb-test-{num_epochs}-{learning_rate}-{lora_rank}-{gradient_accumulation_steps}-{warmup_ratio}-{weight_decay}-{adam_beta2}",
     hub_private_repo=True,
     hub_model_id="agentsea/pg-airbnb-test",
 )
