@@ -14,11 +14,11 @@ from transformers import (
 # params
 device = "cuda" if torch.cuda.is_available() else "cpu"
 base_model_id = "agentsea/paligemma-3b-ft-waveui-896"
-lora_rank = 16
-num_epochs = 2
+lora_rank = 8
+num_epochs = 1
 batch_size = 1
-learning_rate = 0.00001
-gradient_accumulation_steps = 4
+learning_rate = 1e-4
+gradient_accumulation_steps = 1
 warmup_ratio = 0.10
 weight_decay = 0.01
 adam_beta2 = 0.999
