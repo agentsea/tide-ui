@@ -1,426 +1,211 @@
 import gradio as gr
 import os
 import json
-from datetime import datetime
-import uuid
-import shutil
+import hashlib
+from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
-import cv2
 import numpy as np
-from PIL import Image as PILImage
-from uuid import uuid4
-import base64
-from openai import OpenAI
-from typing import Dict
 
-class RealtimeBoundingBoxAnnotator:
+class ImageAnnotator:
     def __init__(self):
+        self.screenshots_dir = Path("../tmp/data/screenshots")
+        self.annotations_dir = Path("../tmp/data/annotations")
+        self.annotations_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.image_files = sorted(list(self.screenshots_dir.glob("*")))
         self.current_index = 0
-        self.bbox_data = []
-        self.current_image_path = None
-        self.current_image_id = None
-        self.is_drawing = False
-        self.current_box = None
-        self.image_to_boxes = {}
-        self.image_to_id = {}
-        self.client = OpenAI()  # Initialize OpenAI client
+        self.current_image_path = self.image_files[0]
         
-        # Create necessary directories
-        os.makedirs("data/images", exist_ok=True)
-        os.makedirs("data/bounding_boxes", exist_ok=True)
-        os.makedirs("data/input_images", exist_ok=True)
-        os.makedirs("data/crops", exist_ok=True)
+        self.dot_radius = 5
         
-        # Load available images
-        self.load_available_images()
-        
-        # Update default prompts to request multiple names
-        self.system_prompt = "You are an expert at identifying UI elements in images."
-        self.user_prompt = "Provide 2-3 alternative names for the UI element shown in the image. The names should be completely non-ambiguous. That is, if there are two buttons that look identical, they should have different names. For example, if there are two sign in buttons then differentiate them with additional information. Return the names as a comma-separated list."
-
-    def encode_image(self, image_path: str) -> str:
-        """Encode image to base64 string"""
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
-
-    def crop_image(self, image_path: str, bbox: Dict) -> PILImage.Image:
-        """Crop image according to bounding box coordinates"""
-        with PILImage.open(image_path) as img:
-            if img.mode == "RGBA":
-                img = img.convert("RGB")
-            return img.crop((bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]))
-
-    def get_element_name(self, image_path: str, bbox: Dict) -> list:
-        """Get element names from OpenAI API"""
-        # Create temporary directory for crops if it doesn't exist
-        temp_dir = Path("data/crops")
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Crop and save temporary image
-        cropped = self.crop_image(image_path, bbox)
-        temp_path = temp_dir / f"{bbox['bb_id']}.jpg"
-        cropped.save(temp_path, "JPEG")
-        
-        # Encode both full and cropped images
-        full_image_base64 = self.encode_image(image_path)
-        cropped_image_base64 = self.encode_image(temp_path)
-        
+        # Try to load a system font, fall back to default if not found
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{full_image_base64}"
-                                }
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{cropped_image_base64}"
-                                }
-                            },
-                            {
-                                "type": "text",
-                                "text": self.user_prompt
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=100  # Increased for multiple names
-            )
-            
-            # Parse comma-separated response into list
-            element_names = [
-                name.strip() 
-                for name in response.choices[0].message.content.strip().split(',')
-            ]
-        except Exception as e:
-            element_names = [f"Error: {str(e)}"]
-        finally:
-            temp_path.unlink()
-            
-        return element_names
-
-    def handle_select(self, image, evt: gr.SelectData):
-        """Handle mouse events for drawing boxes with real-time annotation"""
-        if not self.is_drawing:
-            # Start drawing
-            self.current_box = {
-                'bb_id': str(uuid4()),
-                'x1': evt.index[0],
-                'y1': evt.index[1]
-            }
-            self.is_drawing = True
-        else:
-            # Finish drawing
-            if self.current_box:
-                self.current_box.update({
-                    'x2': evt.index[0],
-                    'y2': evt.index[1]
-                })
-                
-                # Get element names from API
-                element_names = self.get_element_name(self.current_image_path, self.current_box)
-                
-                # Add element names to box data
-                self.current_box['element_names'] = element_names
-                
-                self.bbox_data.append(self.current_box)
-                self.current_box = None
-            self.is_drawing = False
-            
-        updated_image = self.draw_boxes_on_image(image)
-        return updated_image, self.format_bbox_text()
-
-    def format_bbox_text(self):
-        """Format bounding box data for display"""
-        return "\n".join([
-            f"Box {i+1}: ({b['x1']}, {b['y1']}) to ({b['x2']}, {b['y2']}) - {', '.join(b.get('element_names', ['Processing...']))}"
-            for i, b in enumerate(self.bbox_data)
-        ])
-
-    def parse_bbox_text(self, text: str):
-        """Parse the textbox content back into bbox data, preserving coordinates but updating names"""
-        if not text.strip():
-            return
-            
-        current_boxes = {i: box for i, box in enumerate(self.bbox_data)}
-        
-        for line in text.split('\n'):
-            if not line.strip():
-                continue
-                
+            # For Mac/Linux
+            self.font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 20)
+        except OSError:
             try:
-                # Parse line like "Box 1: (100, 200) to (300, 400) - Name1, Name2, Name3"
-                box_num = int(line.split(':')[0].replace('Box ', '')) - 1
-                names_part = line.split(' - ', 1)[1].strip()
-                names_list = [name.strip() for name in names_part.split(',')]
-                
-                if box_num in current_boxes:
-                    current_boxes[box_num]['element_names'] = names_list
-            except (ValueError, IndexError):
-                print(f"Warning: Could not parse line: {line}")
-                continue
+                # For Windows
+                self.font = ImageFont.truetype("arial.ttf", 20)
+            except OSError:
+                # Fallback to default
+                self.font = ImageFont.load_default()
+    
+    def get_image_hash(self, image_path):
+        with open(image_path, "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()
+    
+    def load_annotations(self, image_path):
+        annotation_file = self.annotations_dir / f"{image_path.stem}.json"
+        if annotation_file.exists():
+            with open(annotation_file, "r") as f:
+                return json.load(f)
+        return {"clicks": [], "image_name": image_path.name}
+    
+    def save_annotations(self, image_path: Path, annotations):
+        img = Image.open(image_path)
+        annotations["image_size"] = img.size
+        annotations["image_hash"] = self.get_image_hash(image_path)
         
-        self.bbox_data = [current_boxes[i] for i in sorted(current_boxes.keys())]
-
-    def draw_boxes_on_image(self, image_path):
-        """Draw all bounding boxes on the image with labels"""
-        if isinstance(image_path, str):
-            image = cv2.imread(image_path)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        else:
-            return image_path
-
-        for box in self.bbox_data:
-            cv2.rectangle(
-                image,
-                (int(box['x1']), int(box['y1'])),
-                (int(box['x2']), int(box['y2'])),
-                (255, 0, 0),
-                2
+        annotation_file = self.annotations_dir / f"{image_path.stem}.json"
+        with open(annotation_file, "w") as f:
+            json.dump(annotations, f, indent=2)
+    
+    def draw_clicks_on_image(self, image_path, clicks):
+        img = Image.open(image_path)
+        draw = ImageDraw.Draw(img)
+        
+        # Draw each click as a red dot with its ID
+        for i, (x, y) in enumerate(clicks, 1):
+            # Draw the dot
+            draw.ellipse(
+                [(x - self.dot_radius, y - self.dot_radius), 
+                 (x + self.dot_radius, y + self.dot_radius)],
+                fill='red'
             )
             
-            # Add first element name as label (to avoid cluttering)
-            if 'element_names' in box and box['element_names']:
-                label = box['element_names'][0][:20] + '...' if len(box['element_names'][0]) > 20 else box['element_names'][0]
-                cv2.putText(
-                    image,
-                    label,
-                    (int(box['x1']), int(box['y1'] - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 0, 0),
-                    1
-                )
-        
-        # Draw current box if being drawn
-        if self.is_drawing and self.current_box:
-            cv2.rectangle(
-                image,
-                (int(self.current_box['x1']), int(self.current_box['y1'])),
-                (int(self.current_box['x1']), int(self.current_box['y1'])),
-                (0, 255, 0),  # Green color
-                2
+            # Draw the ID number
+            text = str(i)
+            text_x = x + self.dot_radius + 5
+            text_y = y - self.dot_radius - 5
+            
+            # Create thicker outline for better visibility
+            outline_width = 2
+            for dx in [-outline_width, 0, outline_width]:
+                for dy in [-outline_width, 0, outline_width]:
+                    draw.text(
+                        (text_x + dx, text_y + dy), 
+                        text, 
+                        font=self.font,
+                        fill='white'
+                    )
+            
+            # Draw the text in red
+            draw.text(
+                (text_x, text_y), 
+                text, 
+                font=self.font,
+                fill='red'
             )
-
-        return image
-
-    # Include all other methods from the original BoundingBoxAnnotator class...
-    def load_available_images(self):
-        """Load list of images from input directory"""
-        self.image_files = [
-            f for f in os.listdir("data/input_images")
-            if f.lower().endswith(('.png', '.jpg', '.jpeg'))
-        ]
-        self.image_files.sort()
-
-    def load_existing_annotations(self, image_path):
-        """Load existing annotations for an image"""
-        image_id = self.find_existing_image_id(image_path)
-        if image_id:
-            self.current_image_id = image_id
-            self.image_to_id[image_path] = image_id
-            annotation_path = f"data/bounding_boxes/{image_id}.json"
-            if os.path.exists(annotation_path):
-                with open(annotation_path, 'r') as f:
-                    data = json.load(f)
-                    return data['bounding_boxes']
-        return []
-
-    def find_existing_image_id(self, image_path):
-        """Find existing image ID by comparing files"""
-        if not image_path:
-            return None
-            
-        image_filename = os.path.basename(image_path)
-        for filename in os.listdir("data/images"):
-            if filename.endswith(os.path.splitext(image_filename)[1]):
-                existing_path = os.path.join("data/images", filename)
-                if self.compare_images(image_path, existing_path):
-                    return os.path.splitext(filename)[0]
-        return None
-
-    def compare_images(self, path1, path2):
-        """Compare two images to check if they're identical"""
-        if not (os.path.exists(path1) and os.path.exists(path2)):
-            return False
-        with PILImage.open(path1) as img1, PILImage.open(path2) as img2:
-            return list(img1.getdata()) == list(img2.getdata())
-
-    def navigate_images(self, direction, bbox_text: str):
-        """Navigate through available images"""
-        if not self.image_files:
-            return None, "No images available"
-            
-        self.save_annotations(bbox_text, auto_save=True)
-            
-        if direction == 'next':
-            self.current_index = (self.current_index + 1) % len(self.image_files)
-        else:  # prev
-            self.current_index = (self.current_index - 1) % len(self.image_files)
-            
-        image_path = os.path.join("data/input_images", self.image_files[self.current_index])
-        self.current_image_path = image_path
         
-        self.current_image_id = self.image_to_id.get(image_path, None)
+        return img
+    
+    def update_click_coordinates(self, image_path, clicks_str, evt: gr.SelectData):
+        clicks = json.loads(clicks_str) if clicks_str else []
+        clicks.append([evt.index[0], evt.index[1]])
         
-        if image_path in self.image_to_boxes:
-            self.bbox_data = self.image_to_boxes[image_path]
+        # Save immediately after each click
+        annotations = {"clicks": clicks, "image_name": self.current_image_path.name}
+        self.save_annotations(self.current_image_path, annotations)
+        
+        # Draw the updated image with all clicks
+        updated_image = self.draw_clicks_on_image(str(self.current_image_path), clicks)
+        
+        return (updated_image,
+                json.dumps(clicks, indent=2),
+                self.format_clicks_for_display(clicks),
+                "✓ Saved annotation")
+    
+    def format_clicks_for_display(self, clicks):
+        if not clicks:
+            return "No clicks recorded"
+        return "\n".join(f"ID {i+1}: ({x}, {y})" for i, (x, y) in enumerate(clicks))
+    
+    def navigate_images(self, direction):
+        if direction == "next":
+            self.current_index = min(self.current_index + 1, len(self.image_files) - 1)
         else:
-            self.bbox_data = self.load_existing_annotations(image_path)
-            self.image_to_boxes[image_path] = self.bbox_data
+            self.current_index = max(self.current_index - 1, 0)
+            
+        self.current_image_path = self.image_files[self.current_index]
         
-        updated_image = self.draw_boxes_on_image(image_path)
-        return updated_image, self.format_bbox_text()
-
-    def save_annotations(self, bbox_text: str, auto_save=False):
-        """Save bounding box data and image"""
-        if not self.current_image_path:
-            return "No image loaded" if not auto_save else None
-            
-        # Update annotations from textbox
-        self.parse_bbox_text(bbox_text)
-            
-        if not self.bbox_data:
-            return "No data to save" if not auto_save else None
-            
-        self.image_to_boxes[self.current_image_path] = self.bbox_data
-            
-        if self.current_image_path in self.image_to_id:
-            self.current_image_id = self.image_to_id[self.current_image_path]
-        elif not self.current_image_id:
-            self.current_image_id = str(uuid4())
-            self.image_to_id[self.current_image_path] = self.current_image_id
-            
-            _, ext = os.path.splitext(self.current_image_path)
-            new_image_path = f"data/images/{self.current_image_id}{ext}"
-            shutil.copy2(self.current_image_path, new_image_path)
+        # Load existing annotations for the new image
+        annotations = self.load_annotations(self.current_image_path)
         
-        filename = f"data/bounding_boxes/{self.current_image_id}.json"
-        data = {
-            "image_id": self.current_image_id,
-            "image_path": f"data/images/{self.current_image_id}{os.path.splitext(self.current_image_path)[1]}",
-            "bounding_boxes": self.bbox_data,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Always draw the image with its annotations, even if empty
+        current_image = self.draw_clicks_on_image(str(self.current_image_path), annotations["clicks"])
         
-        with open(filename, "w") as f:
-            json.dump(data, f, indent=2)
-            
-        return f"Saved {len(self.bbox_data)} bounding boxes to {filename}" if not auto_save else None
-
-    def clear_boxes(self):
-        """Clear boxes for current image only"""
-        self.bbox_data = []
-        self.image_to_boxes[self.current_image_path] = []
-        return self.draw_boxes_on_image(self.current_image_path), ""
-
-    def update_prompts(self, system_prompt, user_prompt):
-        """Update the system and user prompts"""
-        self.system_prompt = system_prompt
-        self.user_prompt = user_prompt
-        return f"Prompts updated successfully. Next box will use new prompts."
-
-def create_ui():
-    annotator = RealtimeBoundingBoxAnnotator()
+        return (current_image, 
+                json.dumps(annotations["clicks"], indent=2),
+                self.format_clicks_for_display(annotations["clicks"]),
+                f"Image {self.current_index + 1} of {len(self.image_files)}",
+                "")  # Clear save status when navigating
     
-    with gr.Blocks() as demo:
-        gr.Markdown("# Real-time Bounding Box Annotator")
-        gr.Markdown("Click and drag on the image to draw bounding boxes. Each box will be automatically annotated.")
-        
-        with gr.Row():
-            with gr.Column(scale=2):
-                image_input = gr.Image(
-                    label="Image",
-                    type="filepath",
-                    interactive=True,
-                    value=None
-                )
-                with gr.Row():
-                    prev_btn = gr.Button("Previous Image")
-                    next_btn = gr.Button("Next Image")
-            with gr.Column(scale=1):
-                bbox_display = gr.Textbox(
-                    label="Bounding Boxes",
-                    lines=10,
-                    interactive=True,
-                    placeholder="Draw boxes on the image..."
-                )
-                save_btn = gr.Button("Save Annotations")
-                clear_btn = gr.Button("Clear Boxes")
+    def save_click_coordinates(self, _, clicks_str):
+        clicks = json.loads(clicks_str) if clicks_str else []
+        annotations = {"clicks": clicks, "image_name": self.current_image_path.name}
+        self.save_annotations(self.current_image_path, annotations)
+        return "✓ Saved annotation"
+
+    def create_ui(self):
+        # Get initial image with annotations
+        initial_annotations = self.load_annotations(self.image_files[0])
+        initial_image = self.draw_clicks_on_image(
+            str(self.image_files[0]), 
+            initial_annotations["clicks"]
+        ) if initial_annotations["clicks"] else str(self.image_files[0])
+
+        with gr.Blocks() as app:
+            with gr.Row():
+                with gr.Column(scale=4):
+                    # Add progress indicator
+                    progress_text = gr.Markdown(
+                        f"Image {self.current_index + 1} of {len(self.image_files)}"
+                    )
+                    image = gr.Image(
+                        initial_image,
+                        type="filepath",
+                        interactive=True,
+                        height=800
+                    )
+                    with gr.Row():
+                        prev_btn = gr.Button("Previous")
+                        next_btn = gr.Button("Next")
                 
-                # Add prompt configuration
-                gr.Markdown("### Prompt Configuration")
-                system_prompt = gr.Textbox(
-                    label="System Prompt",
-                    lines=3,
-                    value=annotator.system_prompt
-                )
-                user_prompt = gr.Textbox(
-                    label="User Prompt",
-                    lines=3,
-                    value=annotator.user_prompt
-                )
-                update_prompts_btn = gr.Button("Update Prompts")
-                prompt_status = gr.Textbox(
-                    label="Prompt Update Status",
-                    interactive=False
-                )
+                with gr.Column(scale=1):
+                    # Add save notification
+                    save_status = gr.Markdown("")
+                    
+                    clicks_json = gr.Textbox(
+                        visible=False,
+                        value=json.dumps(initial_annotations["clicks"], indent=2)
+                    )
+                    clicks_display = gr.Textbox(
+                        label="Click Coordinates",
+                        value=self.format_clicks_for_display(initial_annotations["clicks"]),
+                        lines=5,
+                        interactive=False
+                    )
+            
+            save_btn = gr.Button("Save Coordinates")
+            
+            # Updated event handlers
+            image.select(
+                fn=self.update_click_coordinates,
+                inputs=[image, clicks_json],
+                outputs=[image, clicks_json, clicks_display, save_status]
+            )
+            
+            prev_btn.click(
+                fn=lambda: self.navigate_images("prev"),
+                inputs=[],
+                outputs=[image, clicks_json, clicks_display, progress_text, save_status]
+            )
+            
+            next_btn.click(
+                fn=lambda: self.navigate_images("next"),
+                inputs=[],
+                outputs=[image, clicks_json, clicks_display, progress_text, save_status]
+            )
+            
+            save_btn.click(
+                fn=self.save_click_coordinates,
+                inputs=[image, clicks_json],
+                outputs=[save_status]
+            )
         
-        image_input.select(
-            fn=annotator.handle_select,
-            inputs=[image_input],
-            outputs=[image_input, bbox_display]
-        )
-        
-        prev_btn.click(
-            fn=lambda text: annotator.navigate_images('prev', text),
-            inputs=[bbox_display],
-            outputs=[image_input, bbox_display]
-        )
-        
-        next_btn.click(
-            fn=lambda text: annotator.navigate_images('next', text),
-            inputs=[bbox_display],
-            outputs=[image_input, bbox_display]
-        )
-        
-        save_btn.click(
-            fn=annotator.save_annotations,
-            inputs=[bbox_display],
-            outputs=gr.Textbox(label="Save Status")
-        )
-        
-        clear_btn.click(
-            fn=annotator.clear_boxes,
-            outputs=[image_input, bbox_display]
-        )
-        
-        # Add prompt update handler
-        update_prompts_btn.click(
-            fn=annotator.update_prompts,
-            inputs=[system_prompt, user_prompt],
-            outputs=prompt_status
-        )
-        
-        if annotator.image_files:
-            initial_image = f"data/input_images/{annotator.image_files[0]}"
-            annotator.current_image_path = initial_image
-            annotator.bbox_data = annotator.load_existing_annotations(initial_image)
-            image_input.value = annotator.draw_boxes_on_image(initial_image)
-    
-    return demo
+        return app
 
 if __name__ == "__main__":
-    demo = create_ui()
-    demo.launch()
+    annotator = ImageAnnotator()
+    app = annotator.create_ui()
+    app.launch()
