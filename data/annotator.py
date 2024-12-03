@@ -58,19 +58,37 @@ class ImageAnnotator:
             json.dump(annotations, f, indent=2)
     
     def get_recent_examples(self):
-        """Get the last 5 element names from all annotation files"""
+        """Get all name variations from the last 2 elements across all annotation files"""
         all_elements = []
+        
+        # Collect elements from all files
         for file in self.annotations_dir.glob("*.json"):
             try:
                 with open(file, "r") as f:
                     data = json.load(f)
                     if "elements" in data and data["elements"]:
-                        all_elements.extend(e["name"] for e in data["elements"])
-            except:
+                        # Add timestamp to sort by file modification time
+                        file_time = file.stat().st_mtime
+                        for element in data["elements"]:
+                            if "names" in element:
+                                all_elements.append({
+                                    "time": file_time,
+                                    "names": element["names"]
+                                })
+            except Exception as e:
+                print(f"Error reading file {file}: {e}")
                 continue
         
-        # Return the last 5 elements (or all if less than 5)
-        return all_elements[-5:] if all_elements else []
+        # Sort by timestamp and get last 2 elements
+        all_elements.sort(key=lambda x: x["time"], reverse=True)
+        recent_elements = all_elements[:2]
+        
+        # Flatten all name variations from the last 2 elements
+        recent_names = []
+        for element in recent_elements:
+            recent_names.extend(element["names"])
+            
+        return recent_names
     
     def get_element_description(self, original_image_path, annotated_image):
         """Get Claude's description of the clicked UI element"""
@@ -83,9 +101,9 @@ class ImageAnnotator:
 Please provide THREE unique variations of names for this UI element, each on a new line. 
 The names should describe the same element but with different levels of detail or focus.
 For example:
+- sign in
 - sign in button
-- red sign in button at top right
-- authentication button
+- red sign in button
 
 The names should not use snake_case or camelCase. Focus on function and location. Be concise but specific."""
             
@@ -165,7 +183,7 @@ The names should not use snake_case or camelCase. Focus on function and location
             return ["Error getting element description"]
     
     def draw_clicks_on_image(self, image_path, elements, include_ids=True):
-        """Draw clicks on the image with optional IDs and names"""
+        """Draw clicks on the image with optional IDs"""
         img = Image.open(image_path)
         if img.mode != 'RGB':
             img = img.convert('RGB')
@@ -178,16 +196,13 @@ The names should not use snake_case or camelCase. Focus on function and location
             else:  # Handle dictionary format
                 x, y = element["coordinates"]
                 element_id = element.get("id", "")
-                # Get first name for display
-                names = element.get("names", [])
-                name = names[0] if names else element.get("name", "")
             
             # Draw the red dot
             draw.ellipse([x-r, y-r, x+r, y+r], fill='red')
             
-            # Draw the ID and first name if requested
-            if include_ids and isinstance(element, dict):
-                label = f"{element_id}: {name}"
+            # Draw only the ID if requested
+            if include_ids and isinstance(element, dict) and element_id:
+                label = f"{element_id}"  # Only show the ID number
                 draw.text((x+r+5, y-10), label, font=self.font, fill='red')
         
         return img
