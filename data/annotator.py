@@ -57,32 +57,33 @@ class ImageAnnotator:
         with open(annotation_file, "w") as f:
             json.dump(annotations, f, indent=2)
     
-    def get_random_examples(self):
-        """Get random examples from all annotation files"""
-        examples = []
+    def get_recent_examples(self):
+        """Get the last 5 element names from all annotation files"""
+        all_elements = []
         for file in self.annotations_dir.glob("*.json"):
             try:
                 with open(file, "r") as f:
                     data = json.load(f)
                     if "elements" in data and data["elements"]:
-                        examples.extend(e["name"] for e in data["elements"])
+                        all_elements.extend(e["name"] for e in data["elements"])
             except:
                 continue
-        # Get up to 5 random examples, or all if less than 5
-        return random.sample(examples, min(5, len(examples))) if examples else []
+        
+        # Return the last 5 elements (or all if less than 5)
+        return all_elements[-5:] if all_elements else []
     
     def get_element_description(self, original_image_path, annotated_image):
         """Get Claude's description of the clicked UI element"""
         try:
-            # Get random examples
-            examples = self.get_random_examples()
+            # Get last 5 examples instead of random ones
+            examples = self.get_recent_examples()
             
             # Create the base prompt
             base_prompt = "I'll show you two screenshots. The second one has a red dot indicating a UI element. Please provide a unique, non-ambiguous name for this UI element. The name should not be in snake case or camel case, it should just be a name like 'sign in button' or 'google search bar'. Focus on its function and location. Be concise but specific."
             
             # Only add examples if they exist
             if examples:
-                prompt = f"{base_prompt} Examples of names from this same UI: {', '.join(examples)}. Provide the name only."
+                prompt = f"{base_prompt} Examples of recent element names: {', '.join(examples)}. Provide the name only."
             else:
                 prompt = f"{base_prompt} Provide the name only."
             
