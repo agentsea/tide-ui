@@ -79,13 +79,21 @@ class ImageAnnotator:
             examples = self.get_recent_examples()
             
             # Create the base prompt
-            base_prompt = "I'll show you two screenshots. The second one has a red dot indicating a UI element. Please provide a unique, non-ambiguous name for this UI element. The name should not be in snake case or camel case, it should just be a name like 'sign in button' or 'google search bar'. Focus on its function and location. Be concise but specific."
+            base_prompt = """I'll show you two screenshots. The second one has a red dot indicating a UI element. 
+Please provide THREE unique variations of names for this UI element, each on a new line. 
+The names should describe the same element but with different levels of detail or focus.
+For example:
+- sign in button
+- red sign in button at top right
+- authentication button
+
+The names should not use snake_case or camelCase. Focus on function and location. Be concise but specific."""
             
             # Only add examples if they exist
             if examples:
-                prompt = f"{base_prompt} Examples of recent element names: {', '.join(examples)}. Provide the name only."
+                prompt = f"{base_prompt}\n\nExamples of recent element names: {', '.join(examples)}.\n\nProvide exactly 3 variations, one per line:"
             else:
-                prompt = f"{base_prompt} Provide the name only."
+                prompt = f"{base_prompt}\n\nProvide exactly 3 variations, one per line:"
             
             # Print the prompt for debugging
             print("\n=== Claude Prompt ===")
@@ -146,51 +154,41 @@ class ImageAnnotator:
             print(response)
             print("======================\n")
             
-            return response
+            # Split response into lines and clean up
+            variations = [line.strip('- ').strip() for line in response.split('\n') if line.strip()][:3]
+            
+            # Return the variations directly
+            return variations
             
         except Exception as e:
             print(f"Error calling Claude API: {e}")
-            return "Error getting element description"
+            return ["Error getting element description"]
     
-    def draw_clicks_on_image(self, image_path, clicks, include_ids=True):
-        # clicks can now be either a list of coordinates or a list of elements
-        if clicks and isinstance(clicks[0], dict):
-            # If we're passed elements, extract coordinates
-            coordinates = [e["coordinates"] for e in clicks]
-        else:
-            coordinates = clicks
-            
+    def draw_clicks_on_image(self, image_path, elements, include_ids=True):
+        """Draw clicks on the image with optional IDs and names"""
         img = Image.open(image_path)
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
         draw = ImageDraw.Draw(img)
+        r = self.dot_radius
         
-        for i, (x, y) in enumerate(coordinates, 1):
-            # Draw the dot
-            draw.ellipse(
-                [(x - self.dot_radius, y - self.dot_radius), 
-                 (x + self.dot_radius, y + self.dot_radius)],
-                fill='red'
-            )
+        for element in elements:
+            if isinstance(element, list):  # Handle raw coordinate list
+                x, y = element
+            else:  # Handle dictionary format
+                x, y = element["coordinates"]
+                element_id = element.get("id", "")
+                # Get first name for display
+                names = element.get("names", [])
+                name = names[0] if names else element.get("name", "")
             
-            if include_ids:
-                text = str(i)
-                text_x = x + self.dot_radius + 5
-                text_y = y - self.dot_radius - 5
-                
-                outline_width = 2
-                for dx in [-outline_width, 0, outline_width]:
-                    for dy in [-outline_width, 0, outline_width]:
-                        draw.text(
-                            (text_x + dx, text_y + dy), 
-                            text, 
-                            font=self.font,
-                            fill='white'
-                        )
-                draw.text(
-                    (text_x, text_y), 
-                    text, 
-                    font=self.font,
-                    fill='red'
-                )
+            # Draw the red dot
+            draw.ellipse([x-r, y-r, x+r, y+r], fill='red')
+            
+            # Draw the ID and first name if requested
+            if include_ids and isinstance(element, dict):
+                label = f"{element_id}: {name}"
+                draw.text((x+r+5, y-10), label, font=self.font, fill='red')
         
         return img
     
@@ -206,13 +204,13 @@ class ImageAnnotator:
             include_ids=False
         )
         
-        # Get element description from Claude
-        element_name = self.get_element_description(
+        # Get element description variations from Claude
+        variations = self.get_element_description(
             str(self.current_image_path),
             annotated_image_for_claude
         )
         
-        # Update annotations with element name
+        # Update annotations with all name variations
         if "elements" not in annotations:
             annotations["elements"] = []
         
@@ -220,7 +218,7 @@ class ImageAnnotator:
         annotations["elements"].append({
             "id": new_id,
             "coordinates": new_click,
-            "name": element_name
+            "names": variations
         })
         
         # Save annotations
@@ -232,7 +230,7 @@ class ImageAnnotator:
         return (updated_image,
                 json.dumps(annotations["elements"], indent=2),
                 self.format_clicks_for_display(annotations["elements"]),
-                "✓ Saved annotation")
+                "✓ Added new element")
     
     def format_clicks_for_display(self, elements):
         if not elements:
@@ -242,7 +240,12 @@ class ImageAnnotator:
         for element in elements:
             x, y = element["coordinates"]
             lines.append(f"ID {element['id']}: ({x}, {y})")
-            lines.append(element["name"])
+            if "names" in element:  # Handle both old and new format
+                lines.append("Names:")
+                for i, name in enumerate(element["names"], 1):
+                    lines.append(f"{i}. {name}")
+            else:
+                lines.append(element.get("name", "Unnamed"))
             lines.append("---")
         return "\n".join(lines)
     
@@ -253,14 +256,23 @@ class ImageAnnotator:
         
         current_id = None
         current_coords = None
+        current_names = []
         
         for line in lines:
             line = line.strip()
             if not line or line == "---":
+                if current_id is not None and current_coords is not None:
+                    elements.append({
+                        "id": current_id,
+                        "coordinates": current_coords,
+                        "names": current_names if current_names else ["Unnamed"]
+                    })
+                current_id = None
+                current_coords = None
+                current_names = []
                 continue
                 
             if line.startswith("ID "):
-                # Parse coordinates
                 try:
                     id_part, coords_part = line.split(": ")
                     current_id = int(id_part.replace("ID ", ""))
@@ -268,17 +280,13 @@ class ImageAnnotator:
                     current_coords = [float(coords_str[0]), float(coords_str[1])]
                 except:
                     continue
-            elif current_id is not None and current_coords is not None:
-                # This line is the element name
-                elements.append({
-                    "id": current_id,
-                    "coordinates": current_coords,
-                    "name": line
-                })
-                current_id = None
-                current_coords = None
+            elif line == "Names:":
+                continue
+            elif line.startswith(("1.", "2.", "3.")):  # Handle numbered names
+                name = line[3:].strip()  # Remove number and dot
+                current_names.append(name)
         
-        return {"elements": elements}  # Only return elements, no clicks array
+        return {"elements": elements}
     
     def update_from_text(self, text):
         """Update annotations from edited text"""
