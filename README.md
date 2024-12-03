@@ -20,12 +20,7 @@ This project explores a pipeline to improve click models on specific UIs.
 
 ## Data
 
-The gathering of the data has two components:
-
-1. A process to capture screenshots of specific UI on various user stories.
-2. A process to annotate the elements in theses screenshots.
-
-For more information see [data/](./data/)
+UI-specific click-data can be captured in a process similar to the one outlined in [data/](./data/). For more info, see the instructions there.
 
 ## Training
 
@@ -36,16 +31,14 @@ Among others, some of the best open-source models for clicking are:
 3. [Moondream](https://github.com/vikhyat/moondream) (in the next release)
 4. [ShowUI](https://github.com/showlab/ShowUI)
 
-We will experiment with these models to see which one is best fit for this specific use-case. We care about performance and cost/efficiency.
+We will first focus on Molmo, which already has a fairly high performance on clicking. For more info on its performance vs Claude Sonnet 3.5 see [evals/general_clicking/](./evals/general_clicking/)
 
 ## Evaluation
 
 TBD
 
-
 ## TODO
 
-- [ ] Get screenshots in full-screen.
-- [ ] Use OmniParser's YOLO model for automatic bounding boxes.
-- [ ] Use Sonnet 3.5 for automatic annotation
-- [ ] Repeat fine-tune with PaliGemma
+- [ ] Update annotator to use clicks again.
+- [ ] Add automatic annotation with Sonnet 3.5
+- [ ] Run ft script
