@@ -1,18 +1,8 @@
 # Data
 
-There are two processes that are involved in the generation of the data for this projects:
+There are two processes that are involved in the generation of the data:
 
-1. A process to capture screenshots of the UI.
-2. A process to annotate these screenshots.
+1. Collect screenshots from a specific UI
+2. Annotate the elements in the screenshots
 
-For the former, one can run the `agentdesk.ipynb` notebook. This will launch a VM locally that will have a background loop that captures the screenshots.
-
-Once we have the screenshots, we can annotate them with the gradio app in `bounding_box_annotator.py`.
-
-The annotated images can then be processed into a HF dataset with `bb_preprocess.py`. An example dataset is currently hosted in [anchor](https://huggingface.co/datasets/agentsea/anchor) for the AirBnb interface.
-
-
-TODO:
-
-    - this code is very sloppy. might need some modifications.
-    - i think the paths need fixing. I was originally using this in another repo
+The first one can be done by running a process that gets screenshots while a user interacts with the UI. A simple PoC of how this can be done can be found in `screenshots.ipynb`
