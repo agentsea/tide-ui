@@ -199,7 +199,6 @@ class ImageAnnotator:
         new_click = [evt.index[0], evt.index[1]]
         
         # Create image with just the new dot (no IDs) for Claude
-        temp_clicks = [new_click]
         annotated_image_for_claude = self.draw_clicks_on_image(
             str(self.current_image_path), 
             [new_click], 
@@ -227,13 +226,10 @@ class ImageAnnotator:
         self.save_annotations(self.current_image_path, annotations)
         
         # Draw the updated image with all clicks and IDs
-        updated_image = self.draw_clicks_on_image(
-            str(self.current_image_path), 
-            [e["coordinates"] for e in annotations["elements"]]
-        )
+        updated_image = self.draw_clicks_on_image(str(self.current_image_path), annotations["elements"])
         
         return (updated_image,
-                json.dumps([e["coordinates"] for e in annotations["elements"]], indent=2),
+                json.dumps(annotations["elements"], indent=2),
                 self.format_clicks_for_display(annotations["elements"]),
                 "✓ Saved annotation")
     
@@ -252,7 +248,6 @@ class ImageAnnotator:
     def parse_display_text(self, text):
         """Parse the display text back into annotations structure"""
         lines = text.strip().split('\n')
-        clicks = []
         elements = []
         
         current_id = None
@@ -270,7 +265,6 @@ class ImageAnnotator:
                     current_id = int(id_part.replace("ID ", ""))
                     coords_str = coords_part.strip("()").split(",")
                     current_coords = [float(coords_str[0]), float(coords_str[1])]
-                    clicks.append(current_coords)
                 except:
                     continue
             elif current_id is not None and current_coords is not None:
@@ -283,7 +277,7 @@ class ImageAnnotator:
                 current_id = None
                 current_coords = None
         
-        return {"clicks": clicks, "elements": elements}
+        return {"elements": elements}  # Only return elements, no clicks array
     
     def update_from_text(self, text):
         """Update annotations from edited text"""
@@ -294,10 +288,10 @@ class ImageAnnotator:
             self.save_annotations(self.current_image_path, annotations)
             
             # Redraw image with updated annotations
-            updated_image = self.draw_clicks_on_image(str(self.current_image_path), parsed["clicks"])
+            updated_image = self.draw_clicks_on_image(str(self.current_image_path), annotations["elements"])
             
             return (updated_image,
-                    json.dumps(parsed["clicks"], indent=2),
+                    json.dumps(annotations["elements"], indent=2),
                     "✓ Updated annotations")
         except Exception as e:
             print(f"Error updating annotations: {e}")
