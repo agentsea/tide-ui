@@ -113,11 +113,6 @@ The names should not use snake_case or camelCase. Focus on function and location
             else:
                 prompt = f"{base_prompt}\n\nProvide exactly 3 variations, one per line:"
             
-            # Print the prompt for debugging
-            print("\n=== Claude Prompt ===")
-            print(prompt)
-            print("===================\n")
-            
             # Convert original image to base64
             with Image.open(original_image_path) as img:
                 if img.mode != 'RGB':
@@ -166,11 +161,6 @@ The names should not use snake_case or camelCase. Focus on function and location
             )
             
             response = message.content[0].text.strip()
-            
-            # Print the response for debugging
-            print("=== Claude Response ===")
-            print(response)
-            print("======================\n")
             
             # Split response into lines and clean up
             variations = [line.strip('- ').strip() for line in response.split('\n') if line.strip()][:3]
