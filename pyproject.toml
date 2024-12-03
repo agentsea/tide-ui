@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "agentdesk>=0.2.109",
+    "anthropic>=0.40.0",
     "datasets>=3.0.2",
     "einops>=0.8.0",
     "gradio>=4.26.0",
