@@ -1,73 +1,74 @@
 import json
 import glob
-from datasets import Dataset, DatasetDict
-from huggingface_hub import HfApi
 import os
-from tqdm import tqdm
-from PIL import Image
+from datasets import Dataset, Image, Value, Sequence
+from PIL import Image as PILImage
+import numpy as np
+from huggingface_hub import HfApi
 
-def load_and_process_files(directory):
-    all_data = []
+def load_annotations(annotations_dir, images_dir):
+    data = {
+        'image': [],
+        'image_hash': [],
+        'point_id': [],
+        'name': [],
+        'coordinates': [],
+        'resolution': []
+    }
     
-    # Get all JSON files in the directory
-    json_files = glob.glob(os.path.join(directory, "*.json"))
+    # Get all JSON files in the annotations directory
+    json_files = glob.glob(os.path.join(annotations_dir, '*.json'))
     
-    # Iterate through each JSON file with a progress bar
-    for json_file in tqdm(json_files, desc="Processing JSON files"):
+    for json_file in json_files:
         with open(json_file, 'r') as f:
-            data = json.load(f)
+            annotation = json.load(f)
             
-            # Load the image
-            try:
-                image = Image.open(data['image_path'])
-                # Get image resolution
-                width, height = image.size
-            except Exception as e:
-                print(f"Error loading image {data['image_path']}: {e}")
-                continue
+        # Get corresponding image path
+        image_path = os.path.join(images_dir, annotation['image_name'])
+        if not os.path.exists(image_path):
+            print(f"Warning: Image {image_path} not found, skipping...")
+            continue
             
-            # Process each bounding box and element name combination
-            for bb in data['bounding_boxes']:
-                # Calculate center point
-                center_x = (bb['x1'] + bb['x2']) / 2
-                center_y = (bb['y1'] + bb['y2']) / 2
-                
-                # Create bounding box array
-                bbox = [bb['x1'], bb['y1'], bb['x2'], bb['y2']]
-                
-                # Create an entry for each element name
-                for element_name in bb['element_names']:
-                    processed_entry = {
-                        'image_id': data['image_id'],
-                        'image': image,
-                        'resolution': [width, height],
-                        'bb_id': bb['bb_id'],
-                        'bbox': bbox,
-                        'point': [center_x, center_y],
-                        'element_name': element_name
-                    }
-                    all_data.append(processed_entry)
+        # Process each element and its names
+        for element in annotation['elements']:
+            for name in element['names']:
+                data['image'].append(image_path)
+                data['image_hash'].append(annotation['image_hash'])
+                data['point_id'].append(element['id'])
+                data['name'].append(name)
+                data['coordinates'].append(element['coordinates'])
+                data['resolution'].append(annotation['image_size'])
     
-    return all_data
+    return data
 
 def main():
-    # Load and process all JSON files
-    data = load_and_process_files('data/bounding_boxes')
+    # Define paths
+    annotations_dir = '../tmp/data/annotations'
+    images_dir = '../tmp/data/screenshots'
+    
+    # Load and process annotations
+    print("Loading annotations...")
+    data = load_annotations(annotations_dir, images_dir)
     
     # Create dataset
-    dataset = Dataset.from_list(data)
+    print("Creating dataset...")
+    dataset = Dataset.from_dict(data)
     
-    # Create dataset dictionary with a single split
-    dataset_dict = DatasetDict({
-        'train': dataset  # You might want to split this into train/val/test later
-    })
+    # Cast coordinates and resolution to the correct type
+    dataset = dataset.cast_column('coordinates', Sequence(feature=Value('float32'), length=2))
+    dataset = dataset.cast_column('resolution', Sequence(feature=Value('int32'), length=2))
     
-    # Push to hub
-    dataset_dict.push_to_hub(
+    # Convert image paths to actual images
+    dataset = dataset.cast_column('image', Image())
+    
+    # Push to Hugging Face Hub
+    print("Pushing to Hugging Face Hub...")
+    dataset.push_to_hub(
         "agentsea/anchor",
-        private=False,
-        token=os.environ.get('HF_TOKEN')  # Make sure to set this environment variable
+        private=True,
     )
+    
+    print("Done!")
 
 if __name__ == "__main__":
     main()
