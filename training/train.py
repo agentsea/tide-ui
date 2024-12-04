@@ -174,9 +174,9 @@ class DataCollator:
                 values.
         """
         # format images, prompts and answers
-        prompts = ["Point to the " + row["name"] for row in dataset]
+        prompts = ["Point to " + row["name"] for row in dataset]
         answers = [
-            point_to_xml(normalize_point(row["point"], row["image"].size), row["name"])
+            point_to_xml(normalize_point(row["coordinates"], row["image"].size), row["name"])
             for row in dataset
         ]
         images_list = [[row["image"]] for row in dataset]
@@ -197,21 +197,17 @@ def train() -> None:
     Returns:
         None: The trained model is saved to the specified output directory.
     """
-    train_dataset = load_dataset("agentsea/tide-ui", split="train")
-    eval_dataset = load_dataset("agentsea/tide-ui", split="validation")
-    
-    # TODO: remove the following before full ft
-    train_dataset = train_dataset.shuffle(seed=3407).select(range(len(train_dataset) // 10))
-    eval_dataset = eval_dataset.shuffle(seed=3407).select(range(len(eval_dataset) // 10))
+    train_dataset = load_dataset("agentsea/anchor", split="train")
+    eval_dataset = load_dataset("agentsea/anchor", split="test")
     print(f"Training dataset size: {len(train_dataset)}")
     print(f"Evaluation dataset size: {len(eval_dataset)}")
 
     training_args = TrainingArguments(
         # storage
-        output_dir="../tmp/molmo-7b-d-0924",  # store in tmp
+        output_dir="../tmp/molmo-7b-d-0924-anchor",  # store in tmp
         # train
-        per_device_train_batch_size=2,
-        num_train_epochs=3,
+        per_device_train_batch_size=1,
+        num_train_epochs=1,
         bf16=True,
         remove_unused_columns=False,
         dataloader_num_workers=16,
@@ -221,7 +217,7 @@ def train() -> None:
         # eval
         per_device_eval_batch_size=2,
         eval_strategy="steps",
-        eval_steps=100,
+        eval_steps=10,
         # fsdp
         fsdp="full_shard auto_wrap",
         fsdp_config={
