@@ -204,7 +204,7 @@ def train() -> None:
 
     training_args = TrainingArguments(
         # storage
-        output_dir="../tmp/molmo-7b-d-0924-anchor",  # store in tmp
+        output_dir="../../tmp/molmo-7b-d-0924-anchor",  # store in tmp
         # train
         per_device_train_batch_size=1,
         num_train_epochs=1,
@@ -265,7 +265,7 @@ def train() -> None:
     processor.push_to_hub("agentsea/molmo-7b-ft-tideui", private=True)
     # upload modeling_molmo.py
     upload_file(
-        path_or_fileobj="../training/modeling_molmo.py",
+        path_or_fileobj="../../training/modeling_molmo.py",
         path_in_repo="modeling_molmo.py",
         repo_id="agentsea/molmo-7b-ft-tideui",
     )

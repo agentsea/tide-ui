@@ -35,8 +35,8 @@ We will focus on these two models for now. For more info on their performance vs
 
 We run two evaluations:
 
-1. Click-only eval - this is based on the test-set gathered from the specific UI. We calculate the mean normalized distance from ground truth and compare this to the base Molmo and Moondream models + Claude Sonnet 3.5, a closed source option with clicking capabilities.
-2. Agent-based eval - this quantifies how much better an agent performs in the specific UI over a range of tasks. 
+1. UI-specific clicking - this is based on the test-set gathered from the specific UI. We calculate the mean normalized distance from ground truth and compare this to the base Molmo and Moondream models + Claude Sonnet 3.5, a closed source option with clicking capabilities.
+2. UI-specific agent task - this quantifies how much better an agent performs in the specific UI over a range of tasks. 
 
 For more details see [evals/](./evals/).
 
