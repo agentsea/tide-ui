@@ -39,6 +39,6 @@ TBD
 
 ## TODO
 
-- [ ] Update annotator to use clicks again.
-- [ ] Add automatic annotation with Sonnet 3.5
-- [ ] Run ft script
+- [ ] ds eval
+- [ ] agent eval
+- [ ] training experiments: change lr/epoch/ds_size/etc
