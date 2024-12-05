@@ -27,15 +27,18 @@ UI-specific click-data can be captured in a process similar to the one outlined 
 Among others, some of the best open-source models for clicking are:
 
 1. [Molmo](https://huggingface.co/allenai/Molmo-7B-D-0924) 
-2. [PaliGemma](https://huggingface.co/agentsea/paligemma-3b-ft-waveui-896)
-3. [Moondream](https://github.com/vikhyat/moondream) (in the next release)
-4. [ShowUI](https://github.com/showlab/ShowUI)
+3. [Moondream](https://github.com/vikhyat/moondream)
 
-We will first focus on Molmo, which already has a fairly high performance on clicking. For more info on its performance vs Claude Sonnet 3.5 see [evals/general_clicking/](./evals/general_clicking/)
+We will focus on these two models for now. For more info on their performance vs Claude Sonnet 3.5 see [evals/general_clicking/](./evals/general_clicking/)
 
 ## Evaluation
 
-TBD
+We run two evaluations:
+
+1. Click-only eval - this is based on the test-set gathered from the specific UI. We calculate the mean normalized distance from ground truth and compare this to the base Molmo and Moondream models + Claude Sonnet 3.5, a closed source option with clicking capabilities.
+2. Agent-based eval - this quantifies how much better an agent performs in the specific UI over a range of tasks. 
+
+For more details see [evals/](./evals/).
 
 ## TODO
 
