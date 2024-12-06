@@ -1569,28 +1569,6 @@ wheels = [
 ]
 
 [[package]]
-name = "litellm"
-version = "1.53.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "aiohttp" },
-    { name = "click" },
-    { name = "importlib-metadata" },
-    { name = "jinja2" },
-    { name = "jsonschema" },
-    { name = "openai" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "tiktoken" },
-    { name = "tokenizers" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/4d/70cad499c4ed840f38472bcc4206a5538c8025f9cf7e3eed7b053e6a14d4/litellm-1.53.2.tar.gz", hash = "sha256:278f5e0208f18e96d7fa188beadebad637536768da04da7729d802dda7497e96", size = 6172164 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/ea/49c991917ff2e143b7349b4208b9bac1f1dca1f244be1eaa10a0cb4f24e2/litellm-1.53.2-py3-none-any.whl", hash = "sha256:333e8f3c7f31ecde355a60632e8c5468f3a18b8d5d905c6f3be7ce952941e0ae", size = 6420065 },
-]
-
-[[package]]
 name = "llvmlite"
 version = "0.43.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1737,21 +1715,6 @@ wheels = [
 [package.optional-dependencies]
 opencv = [
     { name = "opencv-python-headless" },
-]
-
-[[package]]
-name = "mllm"
-version = "0.1.49"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "litellm" },
-    { name = "numpy" },
-    { name = "tenacity" },
-    { name = "threadmem" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/5a/38e063c17f05f5c7e88566264efad03f21a99eb2c572d0117210ec13ca1f/mllm-0.1.49.tar.gz", hash = "sha256:6191d12fa8bfffdcd75ee2d134c9d820d76e568d29240e9291c39d7d9bb9e28d", size = 15969 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8c/fb/a6c72a1018c551329b991a3abb3592d77ce98ddc0979a594b31721154df8/mllm-0.1.49-py3-none-any.whl", hash = "sha256:13d7dfee5ce9f6dedc3ecd759ce47cd4d68028564674c0816fef09edff09c55e", size = 16481 },
 ]
 
 [[package]]
@@ -3479,24 +3442,6 @@ wheels = [
 ]
 
 [[package]]
-name = "threadmem"
-version = "0.2.33"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fastapi", extra = ["all"] },
-    { name = "google-cloud-storage" },
-    { name = "pillow" },
-    { name = "pydantic" },
-    { name = "requests" },
-    { name = "shortuuid" },
-    { name = "sqlalchemy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/11/70/2586d4e47c353dad74da78fe9b78e15c0a590f62aaa35291a8a2966337ca/threadmem-0.2.33.tar.gz", hash = "sha256:08f2e83dc99066e8a782975606170373fc5431232c08c5912cf29769b5c377bd", size = 23818 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/11/e2574ddf3594d5981c00b04dd8825ca6edf4b1e4e2e7b4a9caa9a2100d2a/threadmem-0.2.33-py3-none-any.whl", hash = "sha256:1fea4dada42ad8ecb2b982d159bcc4f293b630fb9e74d9a1689332809f1cc3dc", size = 27293 },
-]
-
-[[package]]
 name = "tide-ui"
 version = "0.1.0"
 source = { virtual = "." }
@@ -3508,7 +3453,6 @@ dependencies = [
     { name = "einops" },
     { name = "gradio" },
     { name = "huggingface-hub" },
-    { name = "mllm" },
     { name = "opencv-python" },
     { name = "orign" },
     { name = "torch" },
@@ -3527,7 +3471,6 @@ requires-dist = [
     { name = "einops", specifier = ">=0.8.0" },
     { name = "gradio", specifier = ">=4.26.0" },
     { name = "huggingface-hub", specifier = ">=0.26.2" },
-    { name = "mllm", specifier = ">=0.1.46" },
     { name = "opencv-python", specifier = ">=4.10.0.84" },
     { name = "orign", specifier = ">=0.1.2" },
     { name = "torch", specifier = "==2.4.0" },
