@@ -11,4 +11,4 @@ Average normalized distance: 0.0647838056875056
 
 Molmo:
 
-Average normalized distance: 0.07923065648289333
+Average normalized distance: 0.0935276935273003

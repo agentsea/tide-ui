@@ -10,8 +10,8 @@ from tqdm import tqdm
 from utils import calculate_normalized_distance
 
 BASE_MODEL_NAME = "allenai/Molmo-7B-D-0924"
-TUNED_MODEL_NAME = "agentsea/molmo-7b-ft-tideui"
 PROVIDER = "vllm"
+NUM_EXAMPLES = 1024
 
 
 class Point(BaseModel):
@@ -33,7 +33,8 @@ def extract_point_from_molmo_response(response: str, resolution: List[int]) -> P
 if __name__ == "__main__":
     os.makedirs("../../tmp/evals/molmo_general_clicking/", exist_ok=True)
     # load data
-    ds_eval = load_dataset("agentsea/anchor", split="test")
+    ds_eval = load_dataset("agentsea/tide-ui", split="test").shuffle(seed=42)
+    ds_eval = ds_eval.select(range(NUM_EXAMPLES))
     # load and connect to base model
     model = ChatModel(model=BASE_MODEL_NAME, provider=PROVIDER)
     model.connect()
@@ -49,7 +50,7 @@ if __name__ == "__main__":
             response.choices[0].text, example["resolution"]
         )
         predictions.append([point.x, point.y])
-        targets.append(example["coordinates"])
+        targets.append(example["point"])
         resolutions.append(example["resolution"])
 
     # save results
