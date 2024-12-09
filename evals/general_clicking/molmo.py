@@ -52,11 +52,9 @@ if __name__ == "__main__":
         predictions.append([point.x, point.y])
         targets.append(example["point"])
         resolutions.append(example["resolution"])
-
     # save results
     with open(f"../../tmp/evals/general_clicking/{BASE_MODEL_NAME}.json", "w") as f:
         json.dump({"predictions": predictions, "targets": targets}, f)
-
     # calculate distances
     distances = list(
         map(
@@ -64,4 +62,6 @@ if __name__ == "__main__":
             zip(predictions, targets, resolutions),
         )
     )
-    print(f"Average normalized distance for {BASE_MODEL_NAME}: {sum(distances) / len(distances)}")
+    print(
+        f"Average normalized distance for {BASE_MODEL_NAME}: {sum(distances) / len(distances)}"
+    )

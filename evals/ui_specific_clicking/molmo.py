@@ -62,7 +62,9 @@ if __name__ == "__main__":
             zip(predictions, targets, resolutions),
         )
     )
-    print(f"Average normalized distance for {BASE_MODEL_NAME}: {sum(distances) / len(distances)}")
+    print(
+        f"Average normalized distance for {BASE_MODEL_NAME}: {sum(distances) / len(distances)}"
+    )
     #### TUNED MODEL ####
     # load and connect to tuned model
     model = ChatModel(model=TUNED_MODEL_NAME, provider=PROVIDER)
@@ -82,7 +84,9 @@ if __name__ == "__main__":
         targets.append(example["coordinates"])
         resolutions.append(example["resolution"])
     # save results
-    with open(f"../../tmp/evals/ui_specific_clicking/{TUNED_MODEL_NAME}.json", "w") as f:
+    with open(
+        f"../../tmp/evals/ui_specific_clicking/{TUNED_MODEL_NAME}.json", "w"
+    ) as f:
         json.dump({"predictions": predictions, "targets": targets}, f)
     # calculate distances
     distances = list(
@@ -91,4 +95,6 @@ if __name__ == "__main__":
             zip(predictions, targets, resolutions),
         )
     )
-    print(f"Average normalized distance for {TUNED_MODEL_NAME}: {sum(distances) / len(distances)}")
+    print(
+        f"Average normalized distance for {TUNED_MODEL_NAME}: {sum(distances) / len(distances)}"
+    )
