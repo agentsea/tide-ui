@@ -50,15 +50,18 @@ if __name__ == "__main__":
     schema = Point.model_json_schema()
     for example in tqdm(ds_eval):
         image = example["image"]
+        # TODO: resize image
         name = example["name"]
-        prompt = PROMPT_TEMPLATE.format(element=name, schema=schema)
-        print(prompt)
-        import pdb; pdb.set_trace()
-        response = model.chat(msg=prompt, image=image)
+        response = model.chat(
+            msg=PROMPT_TEMPLATE.format(element=name, schema=schema),
+            image=image,
+        )
         print(response)
-        # predictions.append([point.x, point.y])
-        # targets.append(example["point"])
-        # resolutions.append(example["resolution"])
+        point = response.parse(Point)
+        print(point)
+        predictions.append([point.x, point.y])
+        targets.append(example["point"])
+        resolutions.append(example["resolution"])
         break
     exit()
 
