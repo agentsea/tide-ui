@@ -5,7 +5,7 @@ To evaluate the performance of different models on the task of clicking on UI ob
 
 In a preliminary run of the first 1024 examples in the test-split we obtained the following average normalized distances:
 
-Claude:
+Claude: # TODO: update this eval with a randomized set using orign when litellm is available
 
 Average normalized distance: 0.0647838056875056
 
