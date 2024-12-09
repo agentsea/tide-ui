@@ -31,9 +31,10 @@ def extract_point_from_molmo_response(response: str, resolution: List[int]) -> P
 
 
 if __name__ == "__main__":
-    os.makedirs("../../tmp/evals/molmo_general_clicking/", exist_ok=True)
+    os.makedirs("../../tmp/evals/ui_specific_clicking/", exist_ok=True)
     # load data
     ds_eval = load_dataset("agentsea/anchor", split="test")
+    #### BASE MODEL ####
     # load and connect to base model
     model = ChatModel(model=BASE_MODEL_NAME, provider=PROVIDER)
     model.connect()
@@ -51,11 +52,9 @@ if __name__ == "__main__":
         predictions.append([point.x, point.y])
         targets.append(example["coordinates"])
         resolutions.append(example["resolution"])
-
     # save results
-    with open("../../tmp/evals/molmo_general_clicking/predictions.json", "w") as f:
+    with open(f"../../tmp/evals/ui_specific_clicking/{BASE_MODEL_NAME}.json", "w") as f:
         json.dump({"predictions": predictions, "targets": targets}, f)
-
     # calculate distances
     distances = list(
         map(
@@ -63,4 +62,33 @@ if __name__ == "__main__":
             zip(predictions, targets, resolutions),
         )
     )
-    print(f"Mean std distance: {sum(distances) / len(distances)}")
+    print(f"Average normalized distance for {BASE_MODEL_NAME}: {sum(distances) / len(distances)}")
+    #### TUNED MODEL ####
+    # load and connect to tuned model
+    model = ChatModel(model=TUNED_MODEL_NAME, provider=PROVIDER)
+    model.connect()
+    # run predictions with tuned model
+    predictions = []
+    targets = []
+    resolutions = []
+    for example in tqdm(ds_eval):
+        image = example["image"]
+        name = example["name"]
+        response = model.chat(msg="Point to " + name, image=image)
+        point = extract_point_from_molmo_response(
+            response.choices[0].text, example["resolution"]
+        )
+        predictions.append([point.x, point.y])
+        targets.append(example["coordinates"])
+        resolutions.append(example["resolution"])
+    # save results
+    with open(f"../../tmp/evals/ui_specific_clicking/{TUNED_MODEL_NAME}.json", "w") as f:
+        json.dump({"predictions": predictions, "targets": targets}, f)
+    # calculate distances
+    distances = list(
+        map(
+            lambda x: calculate_normalized_distance(x[0], x[1], x[2]),
+            zip(predictions, targets, resolutions),
+        )
+    )
+    print(f"Average normalized distance for {TUNED_MODEL_NAME}: {sum(distances) / len(distances)}")

@@ -31,7 +31,7 @@ def extract_point_from_molmo_response(response: str, resolution: List[int]) -> P
 
 
 if __name__ == "__main__":
-    os.makedirs("../../tmp/evals/molmo_general_clicking/", exist_ok=True)
+    os.makedirs("../../tmp/evals/general_clicking/", exist_ok=True)
     # load data
     ds_eval = load_dataset("agentsea/tide-ui", split="test").shuffle(seed=42)
     ds_eval = ds_eval.select(range(NUM_EXAMPLES))
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         resolutions.append(example["resolution"])
 
     # save results
-    with open("../../tmp/evals/molmo_general_clicking/predictions.json", "w") as f:
+    with open(f"../../tmp/evals/general_clicking/{BASE_MODEL_NAME}.json", "w") as f:
         json.dump({"predictions": predictions, "targets": targets}, f)
 
     # calculate distances
@@ -64,4 +64,4 @@ if __name__ == "__main__":
             zip(predictions, targets, resolutions),
         )
     )
-    print(f"Mean std distance: {sum(distances) / len(distances)}")
+    print(f"Average normalized distance for {BASE_MODEL_NAME}: {sum(distances) / len(distances)}")
