@@ -8,6 +8,8 @@ Average normalized distance for allenai/Molmo-7B-D-0924: 0.07353734766234708
 
 Average normalized distance for agentsea/molmo-7b-ft-tideui: 0.030793343330084516
 
+Average normalized distance for vikhyatk/moondream-next: 0.14661676161480863
+
 The above shows an improvement of ~4% of the image diagonal between the finetuned model and the base model, indicating that the fine-tuning pipeline is promising as a potential path for improvement over agentic tasks in specific UIs.
 
 ## Future work
