@@ -12,3 +12,7 @@ Average normalized distance: 0.0647838056875056
 Molmo:
 
 Average normalized distance: 0.0935276935273003
+
+Moondream:
+
+Average normalized distance for vikhyatk/moondream-next: 0.04698475398150052

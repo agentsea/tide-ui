@@ -2021,7 +2021,7 @@ wheels = [
 
 [[package]]
 name = "orign"
-version = "0.1.9"
+version = "0.1.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pillow" },
@@ -2030,9 +2030,9 @@ dependencies = [
     { name = "websocket-client" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7f/93/1c2a004a02cebf37b36d8379e6381590a326057957bcae41b50c4affaa8d/orign-0.1.9.tar.gz", hash = "sha256:17d19b54cd5aeea2aaf89247930b1d96348fe854b0307c4ac6c77477c7fd4ea1", size = 7888 }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/c3/0c0d7e8ae3b113f87773c78bfa8debc4525c51338e18094f4a9afcc94397/orign-0.1.11.tar.gz", hash = "sha256:c15bd16bd99ab33943143575b5ff39e56bfb53c6193d52fbacc77443067f4d51", size = 7936 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d3/60/5388281369c5367aefa1564c2bdd65cc2d23b65ea05d635ce6b0cb8ad790/orign-0.1.9-py3-none-any.whl", hash = "sha256:7b015f3c32c6488706c8e60fec386f5c9a43321e7d67843f4e688295c2456aad", size = 14076 },
+    { url = "https://files.pythonhosted.org/packages/c9/54/31f36cd533c89e55cf92f3587e69dc873bc93cbf65cf8999a9bb891da636/orign-0.1.11-py3-none-any.whl", hash = "sha256:c77fc92000cd936c6aa26fb88087a2259d7ef46e0b420bf87cbb949e3a63c752", size = 14128 },
 ]
 
 [[package]]
@@ -3212,7 +3212,7 @@ requires-dist = [
     { name = "gradio", specifier = ">=3.36.1" },
     { name = "huggingface-hub", specifier = ">=0.26.2" },
     { name = "opencv-python", specifier = ">=4.10.0.84" },
-    { name = "orign", specifier = ">=0.1.9" },
+    { name = "orign", specifier = ">=0.1.11" },
     { name = "torch", specifier = "==2.4.0" },
     { name = "torchvision", specifier = ">=0.19.0" },
     { name = "tqdm", specifier = ">=4.66.6" },
