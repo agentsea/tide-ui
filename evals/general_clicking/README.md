@@ -15,4 +15,4 @@ Average normalized distance: 0.0935276935273003
 
 Moondream:
 
-Average normalized distance for vikhyatk/moondream-next: 0.04698475398150052
+Average normalized distance: 0.04698475398150052
