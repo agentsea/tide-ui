@@ -20,12 +20,7 @@ DEVICE = "cuda"
 ANSWER_EOS = "<|endoftext|>"
 IMG_TOKENS = 729
 
-# load data
-train_dataset = load_dataset("agentsea/anchor", split="train")
-eval_dataset = load_dataset("agentsea/anchor", split="test")
-print(f"Training dataset size: {len(train_dataset)}")
-print(f"Evaluation dataset size: {len(eval_dataset)}")
-# load model
+# load model and tokenizer
 model_name = "vikhyatk/moondream-next"
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
@@ -46,12 +41,13 @@ class AnchorDataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.data[idx]
+        normalized_coords = [sample['coordinates'][0] / sample["image"].width, sample['coordinates'][1] / sample["image"].height]
         return {
-            "image": sample["image"], # PIL image
+            "image": sample["image"],  # PIL image
             "qa": [
                 {
                     "question": f"Point: {sample['name']}",
-                    "answer": f"{sample['coordinates']}", # TODO: update this to use the correct format
+                    "answer": f"{normalized_coords}",  # TODO: update this to use the correct format
                 }
             ],
         }
@@ -61,6 +57,18 @@ datasets = {
     "train": AnchorDataset("train"),
     "test": AnchorDataset("test"),
 }
+
+sample = datasets['train'][0]
+
+for qa in sample['qa']:
+    print('Question:', qa['question'])
+    print('Ground Truth:', qa['answer'])
+    print('Moondream:', model.point(
+        sample['image'],
+        qa['question'],
+        tokenizer=tokenizer,
+    ))
+import pdb; pdb.set_trace()
 
 
 def collate_fn(batch):
