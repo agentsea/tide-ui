@@ -14,9 +14,7 @@ model = AutoModelForCausalLM.from_pretrained(
 ).to("cuda")
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-image = Image.open(
-    requests.get("https://picsum.photos/id/237/536/354", stream=True).raw
-)
+# inference
 image = Image.open("airbnb_test_input.png")
 points = model.point(image, "search button", tokenizer)
 print(f"points: {points}")
