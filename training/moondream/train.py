@@ -46,8 +46,8 @@ class AnchorDataset(Dataset):
             "image": sample["image"],  # PIL image
             "qa": [
                 {
-                    "question": f"Point: {sample['name']}",
-                    "answer": f"{normalized_coords}",  # TODO: update this to use the correct format
+                    "name": sample['name'],
+                    "point": f"{normalized_coords}",  # TODO: update this to use the correct format
                 }
             ],
         }
@@ -61,11 +61,11 @@ datasets = {
 sample = datasets['train'][0]
 
 for qa in sample['qa']:
-    print('Question:', qa['question'])
-    print('Ground Truth:', qa['answer'])
+    print('Question:', qa['name'])
+    print('Ground Truth:', qa['point'])
     print('Moondream:', model.point(
         sample['image'],
-        qa['question'],
+        qa['name'],
         tokenizer=tokenizer,
     ))
 import pdb; pdb.set_trace()
@@ -84,13 +84,13 @@ def collate_fn(batch):
 
         for qa in sample["qa"]:
             q_t = tokenizer(
-                f"\n\nQuestion: {qa['question']}\n\nAnswer:", add_special_tokens=False
+                f"\n\nPoint: {qa['name']}\n\nAnswer:", add_special_tokens=False
             ).input_ids
             toks.extend(q_t)
             labs.extend([-100] * len(q_t))
 
             a_t = tokenizer(
-                f" {qa['answer']}{ANSWER_EOS}", add_special_tokens=False
+                f" {qa['point']}{ANSWER_EOS}", add_special_tokens=False
             ).input_ids
             toks.extend(a_t)
             labs.extend(a_t)
