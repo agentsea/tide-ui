@@ -1,165 +1,225 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Dict, List
 from datasets import load_dataset
 import torch
 import os
+import math
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from bitsandbytes.optim import Adam8bit
+from torch.utils.data import Dataset
+
 
 os.environ["WANDB_PROJECT"] = "moondream-next-tideui"
+EPOCHS = 1
+BATCH_SIZE = 1
+GRAD_ACCUM_STEPS = 1
+LR = 1e-5
+USE_WANDB = False
+DEVICE = "cuda"
+ANSWER_EOS = "<|endoftext|>"
+IMG_TOKENS = 729
+
+# load data
+train_dataset = load_dataset("agentsea/anchor", split="train")
+eval_dataset = load_dataset("agentsea/anchor", split="test")
+print(f"Training dataset size: {len(train_dataset)}")
+print(f"Evaluation dataset size: {len(eval_dataset)}")
+# load model
+model_name = "vikhyatk/moondream-next"
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    trust_remote_code=True,
+    device_map={"": DEVICE},
+    attn_implementation="flash_attention_2",
+    torch_dtype=torch.bfloat16,
+)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 
-class DataCollator:
-    """A data collator class for batching dataset examples into model inputs.
+class CaptchaDataset(Dataset):
+    def __init__(self, split="train"):
+        self.data = load_dataset("google/docci", trust_remote_code=True)[split]
 
-    This collator processes a list of dataset examples containing images, names and points
-    into batched tensors suitable for model training. It formats prompts and answers,
-    processes images, and uses the processor to convert everything into model inputs.
+    def __len__(self):
+        return len(self.data)
 
-    Args:
-        processor (AutoProcessor): The processor to use for converting text and images
-            into model inputs.
-
-    Attributes:
-        processor (AutoProcessor): The stored processor instance.
-    """
-
-    def __init__(self, model: AutoModelForCausalLM, tokenizer: AutoTokenizer):
-        self.model = model
-        self.tokenizer = tokenizer
-
-    def __call__(self, batch: List[Dict]) -> Dict[str, torch.Tensor]:
-        """Collates dataset examples into batched model inputs.
-
-        Args:
-            dataset (List[Dict]): List of dataset examples, where each example is a dict
-                containing 'image', 'name', and 'point' fields.
-
-        Returns:
-            Dict[str, torch.Tensor]: Batched inputs with stacked tensors for model training,
-                containing keys from the processor outputs with corresponding stacked tensor
-                values.
-        """
-        ANSWER_EOS = "<|endoftext|>" # TODO: maybe change this
-        IMG_TOKENS = 729 # TODO: maybe change this
-        # format images, prompts and answers
-        images = [
-            self.model.vision_encoder.preprocess(sample["image"]) for sample in batch 
-        ]
-        labels_acc = []
-        tokens_acc = []
-        for sample in batch:
-            toks = [tokenizer.bos_token_id]
-            labs = [-100] * (IMG_TOKENS + 1)
-            q_t = tokenizer(
-                f"\n\nQuestion: What do you see in the image?\n\nAnswer:",
-                add_special_tokens=False
-            ).input_ids
-            toks.extend(q_t)
-            labs.extend([-100] * len(q_t))
-            a_t = tokenizer(
-                f" A UI screenshot{ANSWER_EOS}",
-                add_special_tokens=False
-            ).input_ids
-            toks.extend(a_t)
-            labs.extend(a_t)
-            tokens_acc.append(toks)
-            labels_acc.append(labs)
-
-        max_len = -1
-        for labels in labels_acc:
-            max_len = max(max_len, len(labels))
-
-        attn_mask_acc = []
-
-        for i in range(len(batch)):
-            len_i = len(labels_acc[i])
-            pad_i = max_len - len_i
-
-            labels_acc[i].extend([-100] * pad_i)
-            tokens_acc[i].extend([tokenizer.eos_token_id] * pad_i)
-            attn_mask_acc.append([1] * len_i + [0] * pad_i)
-        print(f"tokens shape: {torch.stack([torch.tensor(t, dtype=torch.long) for t in tokens_acc]).shape}")
-        # return (
-        #     images,
-        #     torch.stack([torch.tensor(t, dtype=torch.long) for t in tokens_acc]),
-        #     torch.stack([torch.tensor(l, dtype=torch.long) for l in labels_acc]),
-        #     torch.stack([torch.tensor(a, dtype=torch.bool) for a in attn_mask_acc]),
-        # )
-
-        tokens = torch.stack([torch.tensor(t, dtype=torch.long) for t in tokens_acc])
-        labels = torch.stack([torch.tensor(l, dtype=torch.long) for l in labels_acc])
-        attn_mask = torch.stack([torch.tensor(a, dtype=torch.bool) for a in attn_mask_acc])
-        # tokens = tokens.to("cuda")
-        # labels = labels.to("cuda")
-        # attn_mask = attn_mask.to("cuda")
-        with torch.no_grad():
-            img_embs = model.vision_encoder(images)
-
-        tok_embs = model.text_model.get_input_embeddings()(tokens)
-        inputs_embeds = torch.cat((tok_embs[:, 0:1, :], img_embs, tok_embs[:, 1:, :]), dim=1)
+    def __getitem__(self, idx):
+        sample = self.data[idx]
         return {
-            "inputs_embeds": inputs_embeds,
-            "labels": labels,
-            "attention_mask": attn_mask,
+            "image": sample["image"],  # Should be a PIL image
+            "qa": [
+                {
+                    "question": "Describe this image.",
+                    "answer": sample["description"],
+                }
+            ],
         }
 
 
+datasets = {
+    "train": CaptchaDataset("train"),
+    "test": CaptchaDataset("test"),
+}
 
-if __name__ == "__main__":
-    # load data
-    train_dataset = load_dataset("agentsea/anchor", split="train")
-    eval_dataset = load_dataset("agentsea/anchor", split="test")
-    print(f"Training dataset size: {len(train_dataset)}")
-    print(f"Evaluation dataset size: {len(eval_dataset)}")
-    # set training args
-    training_args = TrainingArguments(
-        output_dir="../../tmp/moondream-next-tideui",
-        per_device_train_batch_size=1,
-        num_train_epochs=1,
-        bf16=True,
-        remove_unused_columns=False,
-        dataloader_num_workers=16,
-        dataloader_pin_memory=True,
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        # eval
-        per_device_eval_batch_size=2,
-        eval_strategy="steps",
-        eval_steps=10,
-        # logging
-        logging_steps=1,
-        report_to="wandb",
-        save_steps=1000,
-        save_total_limit=1,
-        hub_private_repo=True,
-        hub_model_id="agentsea/moondream-next-ft-tideui",
-        push_to_hub=False,  # TODO: maybe revert this in full run
-        # opt. TODO: update parameters here
-        learning_rate=1e-5,
-        optim="adamw_torch",
-        lr_scheduler_type="cosine",
-        warmup_ratio=0.1,
-        weight_decay=0.05,
-        max_grad_norm=1.0,
-        seed=3407,
+
+def collate_fn(batch):
+    images = [sample["image"] for sample in batch]
+    images = [model.vision_encoder.preprocess(image) for image in images]
+
+    labels_acc = []
+    tokens_acc = []
+
+    for sample in batch:
+        toks = [tokenizer.bos_token_id]
+        labs = [-100] * (IMG_TOKENS + 1)
+
+        for qa in sample["qa"]:
+            q_t = tokenizer(
+                f"\n\nQuestion: {qa['question']}\n\nAnswer:", add_special_tokens=False
+            ).input_ids
+            toks.extend(q_t)
+            labs.extend([-100] * len(q_t))
+
+            a_t = tokenizer(
+                f" {qa['answer']}{ANSWER_EOS}", add_special_tokens=False
+            ).input_ids
+            toks.extend(a_t)
+            labs.extend(a_t)
+
+        tokens_acc.append(toks)
+        labels_acc.append(labs)
+
+    max_len = -1
+    for labels in labels_acc:
+        max_len = max(max_len, len(labels))
+
+    attn_mask_acc = []
+
+    for i in range(len(batch)):
+        len_i = len(labels_acc[i])
+        pad_i = max_len - len_i
+
+        labels_acc[i].extend([-100] * pad_i)
+        tokens_acc[i].extend([tokenizer.eos_token_id] * pad_i)
+        attn_mask_acc.append([1] * len_i + [0] * pad_i)
+
+    return (
+        images,
+        torch.stack([torch.tensor(t, dtype=torch.long) for t in tokens_acc]),
+        torch.stack([torch.tensor(l, dtype=torch.long) for l in labels_acc]),
+        torch.stack([torch.tensor(a, dtype=torch.bool) for a in attn_mask_acc]),
     )
-    # load model
-    model_name = "vikhyatk/moondream-next"
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        trust_remote_code=True,
-        attn_implementation="flash_attention_2",
-        torch_dtype=torch.bfloat16,
+
+
+def compute_loss(batch, model):
+    images, tokens, labels, attn_mask = batch
+
+    tokens = tokens.to(DEVICE)
+    labels = labels.to(DEVICE)
+    attn_mask = attn_mask.to(DEVICE)
+
+    with torch.no_grad():
+        img_embs = model.vision_encoder(images)
+
+    tok_embs = model.text_model.get_input_embeddings()(tokens)
+    inputs_embeds = torch.cat(
+        (tok_embs[:, 0:1, :], img_embs, tok_embs[:, 1:, :]), dim=1
     )
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # setup trainer
-    trainer = Trainer(
-        model=model.text_model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        data_collator=DataCollator(model, tokenizer),
+
+    outputs = model.text_model(
+        inputs_embeds=inputs_embeds,
+        labels=labels,
+        attention_mask=attn_mask,
     )
-    # run training
-    trainer.train()
-    trainer.push_to_hub()
-    tokenizer.push_to_hub("agentsea/moondream-next-ft-tideui", private=True)
+
+    return outputs.loss
+
+
+def lr_schedule(step, max_steps):
+    x = step / max_steps
+    if x < 0.1:
+        return 0.1 * LR + 0.9 * LR * x / 0.1
+    else:
+        return 0.1 * LR + 0.9 * LR * (1 + math.cos(math.pi * (x - 0.1))) / 2
+
+
+dataloaders = {
+    "train": DataLoader(
+        datasets["train"],
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        collate_fn=collate_fn,
+    )
+}
+model.text_model.train()
+model.text_model.transformer.gradient_checkpointing_enable()
+# run training
+total_steps = EPOCHS * len(dataloaders["train"]) // GRAD_ACCUM_STEPS
+optimizer = Adam8bit(
+    [
+        {"params": model.text_model.parameters()},
+    ],
+    lr=LR * 0.1,
+    betas=(0.9, 0.95),
+    eps=1e-6,
+)
+
+if USE_WANDB:
+    import wandb
+
+    wandb.init(
+        project="moondream-ft",
+        config={
+            "EPOCHS": EPOCHS,
+            "BATCH_SIZE": BATCH_SIZE,
+            "GRAD_ACCUM_STEPS": GRAD_ACCUM_STEPS,
+            "LR": LR,
+        },
+    )
+
+i = 0
+for epoch in range(EPOCHS):
+    for batch in tqdm(dataloaders["train"], desc=f"Epoch {epoch + 1}/{EPOCHS}"):
+        i += 1
+
+        loss = compute_loss(batch, model)
+        loss.backward()
+
+        if i % GRAD_ACCUM_STEPS == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+
+            lr = lr_schedule(i / GRAD_ACCUM_STEPS, total_steps)
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
+
+        if USE_WANDB:
+            wandb.log(
+                {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
+            )
+
+if USE_WANDB:
+    wandb.finish()
+
+model.save_pretrained("checkpoints/moondream-next-ft-tideui")
+tokenizer.push_to_hub("agentsea/moondream-next-ft-tideui", private=True)
+# run eval loop
+model.eval()
+
+# for i, sample in enumerate(datasets['test']):
+#     md_answer = model.answer_question(
+#         model.encode_image(sample['image']),
+#         sample['qa'][0]['question'],
+#         tokenizer=tokenizer,
+#         num_beams=4,
+#         no_repeat_ngram_size=5,
+#         early_stopping=True
+#     )
+
+#     if i < 3:
+#         print('Question:', sample['qa'][0]['question'])
+#         print('Ground Truth:', sample['qa'][0]['answer'])
+#         print('Moondream:', md_answer)
+#     else:
+#         break
