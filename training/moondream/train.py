@@ -37,9 +37,9 @@ model = AutoModelForCausalLM.from_pretrained(
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 
-class CaptchaDataset(Dataset):
+class AnchorDataset(Dataset):
     def __init__(self, split="train"):
-        self.data = load_dataset("google/docci", trust_remote_code=True)[split]
+        self.data = load_dataset("agentsea/anchor", trust_remote_code=True)[split]
 
     def __len__(self):
         return len(self.data)
@@ -47,19 +47,19 @@ class CaptchaDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.data[idx]
         return {
-            "image": sample["image"],  # Should be a PIL image
+            "image": sample["image"], # PIL image
             "qa": [
                 {
-                    "question": "Describe this image.",
-                    "answer": sample["description"],
+                    "question": f"Point: {sample['name']}",
+                    "answer": f"{sample['coordinates']}", # TODO: update this to use the correct format
                 }
             ],
         }
 
 
 datasets = {
-    "train": CaptchaDataset("train"),
-    "test": CaptchaDataset("test"),
+    "train": AnchorDataset("train"),
+    "test": AnchorDataset("test"),
 }
 
 
