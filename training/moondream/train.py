@@ -188,3 +188,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+# TODO:
+# - annotate types
+# - swap optimizer?
+# - adjust optim params
+# - add eval loop
