@@ -7,7 +7,7 @@ import PIL
 import torch
 import torchvision
 import transformers
-from bitsandbytes.optim import Adam8bit
+from torch.optim import Adam
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -160,8 +160,8 @@ def main():
     model.text_model.train()
     model.text_model.transformer.gradient_checkpointing_enable()
     print("Initializing optimizer...")
-    total_steps = EPOCHS * len(train_dataloader) // GRAD_ACCUM_STEPS
-    optimizer = Adam8bit(
+    total_steps: int = EPOCHS * len(train_dataloader) // GRAD_ACCUM_STEPS
+    optimizer: torch.optim.Optimizer = Adam(
         [{"params": model.text_model.parameters()}],
         lr=LR * 0.1,
         betas=(0.9, 0.95),
