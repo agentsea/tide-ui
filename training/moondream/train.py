@@ -109,8 +109,9 @@ def compute_loss(
     return outputs.loss
 
 
-def lr_schedule(step, max_steps, base_lr):
-    x = step / max_steps
+def lr_schedule(step: int, max_steps: int, base_lr: float) -> float:
+    """Learning rate schedule."""
+    x: float = step / max_steps
     if x < 0.1:
         return 0.1 * base_lr + 0.9 * base_lr * x / 0.1
     else:
@@ -167,12 +168,12 @@ def main():
     for epoch in range(EPOCHS):
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{EPOCHS}"):
             i += 1
-            loss = compute_loss(batch, model)
+            loss: torch.Tensor = compute_loss(batch, model)
             loss.backward()
             if i % GRAD_ACCUM_STEPS == 0:
                 optimizer.step()
                 optimizer.zero_grad()
-                lr = lr_schedule(i / GRAD_ACCUM_STEPS, total_steps, LR)
+                lr: float = lr_schedule(i / GRAD_ACCUM_STEPS, total_steps, LR)
                 for param_group in optimizer.param_groups:
                     param_group["lr"] = lr
             if USE_WANDB:
