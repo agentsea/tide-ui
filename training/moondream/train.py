@@ -20,7 +20,7 @@ USE_WANDB = True
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_TOKENS = 729
 MODEL_ID = "vikhyatk/moondream-next"
-
+PROJECT_NAME = "moondream-next-tideui"
 
 class PointDataset(Dataset):
     def __init__(self, split="train"):
@@ -122,9 +122,9 @@ def main():
     if USE_WANDB:
         import wandb
 
-        os.environ["WANDB_PROJECT"] = "moondream-next-tideui"
+        os.environ["WANDB_PROJECT"] = PROJECT_NAME
         wandb.init(
-            project="moondream-next-tideui",
+            project=PROJECT_NAME,
             config={
                 "EPOCHS": EPOCHS,
                 "BATCH_SIZE": BATCH_SIZE,
@@ -181,7 +181,7 @@ def main():
                     {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
                 )
     print("Saving model...")
-    save_dir = "checkpoints/moondream-point"
+    save_dir: str = f"../../tmp/{PROJECT_NAME}"
     os.makedirs(save_dir, exist_ok=True)
     model.save_pretrained(save_dir)
     tokenizer.save_pretrained(save_dir)
@@ -192,12 +192,12 @@ def main():
     for i, sample in enumerate(datasets["test"]):
         if i >= 3:
             break
-        points = model.point(
+        points: List[dict] = model.point(
             sample["image"], sample["query"], tokenizer=tokenizer, max_objects=1
         )
         if points:
-            predicted_point = points[0]
-            actual_point = sample["points"]
+            predicted_point: dict = points[0]
+            actual_point: List[float] = sample["points"]
             print(f"\nSample {i + 1}")
             print(f"Query: {sample['query']}")
             print(
