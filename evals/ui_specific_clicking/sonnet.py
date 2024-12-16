@@ -34,10 +34,9 @@ class Point(BaseModel):
 
 
 if __name__ == "__main__":
-    os.makedirs("../../tmp/evals/general_clicking/", exist_ok=True)
+    os.makedirs("../../tmp/evals/ui_specific_clicking/", exist_ok=True)
     # load data
-    ds_eval = load_dataset("agentsea/tide-ui", split="test").shuffle(seed=42)
-    ds_eval = ds_eval.select(range(NUM_EXAMPLES))
+    ds_eval = load_dataset("agentsea/anchor", split="test")
     # load and connect to base model
     model = ChatModel(model=BASE_MODEL_NAME, provider=PROVIDER)
     model.connect()
@@ -65,7 +64,7 @@ if __name__ == "__main__":
             point = Point(x=0, y=0)
             print(f"Skipping example due to error: {e}")
         predictions.append([point.x, point.y])
-        targets.append(example["point"])
+        targets.append(example["coordinates"])
         resolutions.append(example["resolution"])
 
     # save results
