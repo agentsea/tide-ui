@@ -16,7 +16,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedul
 EPOCHS = 1
 BATCH_SIZE = 1
 GRAD_ACCUM_STEPS = 1
-LR = 1e-6
+LR = 1e-5
 WEIGHT_DECAY = 0.05
 WARMUP_RATIO = 0.1
 MAX_GRAD_NORM = 1.0
@@ -163,12 +163,11 @@ def main():
     model.text_model.train()
     model.text_model.transformer.gradient_checkpointing_enable()
     print("Initializing optimizer...")
-    total_steps: int = EPOCHS * len(train_dataloader) // GRAD_ACCUM_STEPS
     optimizer: torch.optim.Optimizer = AdamW(
         [{"params": model.text_model.parameters()}],
         lr=LR,
         betas=(0.9, 0.999),
-        eps=1e-8,
+        eps=1e-6,
         weight_decay=WEIGHT_DECAY,
     )
     num_training_steps = EPOCHS * len(train_dataloader) // GRAD_ACCUM_STEPS
@@ -187,7 +186,7 @@ def main():
             loss = loss / GRAD_ACCUM_STEPS
             loss.backward()
             if i % GRAD_ACCUM_STEPS == 0:
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=MAX_GRAD_NORM)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=MAX_GRAD_NORM)
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
@@ -224,7 +223,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# TODO:
-# - swap optimizer?
-# - adjust optim params
-# - add eval loop
