@@ -25,6 +25,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_TOKENS = 729
 MODEL_ID = "vikhyatk/moondream-next"
 PROJECT_NAME = "moondream-next-tideui"
+EVAL_STEPS = 100
+EVAL_BATCH_SIZE = 16
 
 
 class PointDataset(Dataset):
@@ -70,7 +72,7 @@ def collate_fn(
         toks.extend(query_tokens)
         labs.extend([-100] * len(query_tokens))
         x_coord_token: int = 50257
-        y_coord_token: int = 50258
+        y_coord_token: int = 50257
         toks.append(x_coord_token)
         labs.append(int(sample["points"][0] * 1024))
         toks.append(y_coord_token)
@@ -123,6 +125,31 @@ def lr_schedule(step: int, max_steps: int, base_lr: float) -> float:
         return 0.1 * base_lr + 0.9 * base_lr * x / 0.1
     else:
         return 0.1 * base_lr + 0.9 * base_lr * (1 + math.cos(math.pi * (x - 0.1))) / 2
+
+def evaluate(model: AutoModelForCausalLM, eval_dataset: Dataset, tokenizer: AutoTokenizer, batch_size: int = EVAL_BATCH_SIZE) -> dict:
+    """Run evaluation on the test dataset with specified batch size."""
+    model.eval()
+    total_distance = 0
+    total_samples = 0
+    
+    eval_dataloader = DataLoader(
+        eval_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=lambda batch: collate_fn(batch, model, tokenizer),
+    )
+    
+    with torch.no_grad():
+        for batch in eval_dataloader:
+            loss = compute_loss(batch, model)
+            total_distance += loss.item() * batch_size
+            total_samples += batch_size
+    
+    model.train()
+    return {
+        "avg_loss": total_distance / total_samples if total_samples > 0 else float('inf'),
+        "samples_evaluated": total_samples
+    }
 
 
 def main():
@@ -179,6 +206,7 @@ def main():
     )
     print("Starting training...")
     i = 0
+    best_eval_loss = float('inf')
     for epoch in range(EPOCHS):
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{EPOCHS}"):
             i += 1
@@ -195,6 +223,22 @@ def main():
                     "loss/train": loss.item() * GRAD_ACCUM_STEPS,
                     "lr": scheduler.get_last_lr()[0]
                 })
+            if i % EVAL_STEPS == 0:
+                print(f"\nRunning evaluation at step {i}...")
+                eval_metrics = evaluate(model, datasets["test"], tokenizer)
+                print(f"Average eval loss: {eval_metrics['avg_loss']:.4f}")
+                if USE_WANDB:
+                    wandb.log({
+                        "eval/avg_loss": eval_metrics['avg_loss'],
+                        "eval/samples": eval_metrics['samples_evaluated']
+                    })
+                if eval_metrics['avg_loss'] < best_eval_loss:
+                    best_eval_loss = eval_metrics['avg_loss']
+                    print(f"New best model with average loss: {best_eval_loss:.4f}")
+                    save_dir = f"../../tmp/{PROJECT_NAME}_best"
+                    os.makedirs(save_dir, exist_ok=True)
+                    model.save_pretrained(save_dir)
+                    tokenizer.save_pretrained(save_dir)
     print("Saving model...")
     save_dir: str = f"../../tmp/{PROJECT_NAME}"
     os.makedirs(save_dir, exist_ok=True)
