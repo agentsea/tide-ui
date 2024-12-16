@@ -50,20 +50,21 @@ if __name__ == "__main__":
     schema = Point.model_json_schema()
     for example in tqdm(ds_eval):
         image = example["image"]
-        # TODO: resize image
+        original_width, original_height = image.size
+        image = image.resize((TARGET_WIDTH, TARGET_HEIGHT))
         name = example["name"]
         response = model.chat(
             msg=PROMPT_TEMPLATE.format(element=name, schema=schema),
             image=image,
         )
-        print(response)
-        point = response.parse(Point)
-        print(point)
+        json_data = json.loads(response.choices[0].text)
+        point = Point(**json_data)
+        x = point.x * original_width / TARGET_WIDTH
+        y = point.y * original_height / TARGET_HEIGHT
+        point = Point(x=x, y=y)
         predictions.append([point.x, point.y])
         targets.append(example["point"])
         resolutions.append(example["resolution"])
-        break
-    exit()
 
     # save results
     with open("../../tmp/evals/sonnet_general_clicking/predictions.json", "w") as f:
