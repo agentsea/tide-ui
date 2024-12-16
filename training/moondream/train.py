@@ -122,9 +122,9 @@ def main():
     if USE_WANDB:
         import wandb
 
-        os.environ["WANDB_PROJECT"] = "moondream-next-tideu"
+        os.environ["WANDB_PROJECT"] = "moondream-next-tideui"
         wandb.init(
-            project="moondream-next-tideu",
+            project="moondream-next-tideui",
             config={
                 "EPOCHS": EPOCHS,
                 "BATCH_SIZE": BATCH_SIZE,
