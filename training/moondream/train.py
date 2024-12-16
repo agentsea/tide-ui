@@ -1,14 +1,16 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from datasets import load_dataset
-from torch.utils.data import Dataset, DataLoader
+import math
+import os
+from typing import List, Tuple
+
+import PIL
 import torch
 import torchvision
-import os
-import math
-from tqdm import tqdm
+import transformers
 from bitsandbytes.optim import Adam8bit
-from typing import List
-import PIL
+from datasets import load_dataset
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 EPOCHS = 1
 BATCH_SIZE = 1
@@ -19,8 +21,9 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_TOKENS = 729
 MODEL_ID = "vikhyatk/moondream-next"
 
+
 class PointDataset(Dataset):
-    def __init__(self, split='train'):
+    def __init__(self, split="train"):
         self.data = load_dataset("agentsea/anchor", trust_remote_code=True)[split]
 
     def __len__(self):
@@ -29,36 +32,42 @@ class PointDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.data[idx]
         normalized_coords = [
-            sample['coordinates'][0] / sample['image'].width,
-            sample['coordinates'][1] / sample['image'].height
+            sample["coordinates"][0] / sample["image"].width,
+            sample["coordinates"][1] / sample["image"].height,
         ]
         return {
             "image": sample["image"],  # PIL image
             "points": normalized_coords,
-            "query": sample['name']
+            "query": sample["name"],
         }
 
-def collate_fn(batch: List[dict], model: AutoModelForCausalLM, tokenizer: AutoTokenizer) -> tuple[List[torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor]:
-    """ Collate function for the point dataset. """
-    images: List[PIL.PngImagePlugin.PngImageFile] = [sample["image"] for sample in batch]
-    encoded_images: List[torchvision.tv_tensors._image.Image] = [model.vision_encoder.preprocess(image) for image in images]
+
+def collate_fn(
+    batch: List[dict], model: AutoModelForCausalLM, tokenizer: AutoTokenizer
+) -> Tuple[List[torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Collate function for the point dataset."""
+    images: List[PIL.PngImagePlugin.PngImageFile] = [
+        sample["image"] for sample in batch
+    ]
+    encoded_images: List[torchvision.tv_tensors._image.Image] = [
+        model.vision_encoder.preprocess(image) for image in images
+    ]
     labels_acc: List[List[int]] = []
     tokens_acc: List[List[int]] = []
     for sample in batch:
         toks: List[int] = [tokenizer.bos_token_id]
         labs: List[int] = [-100] * (IMG_TOKENS + 1)
         query_tokens: List[int] = tokenizer(
-            f"\n\nPoint: {sample['query']}\n\n",
-            add_special_tokens=False
+            f"\n\nPoint: {sample['query']}\n\n", add_special_tokens=False
         ).input_ids
         toks.extend(query_tokens)
         labs.extend([-100] * len(query_tokens))
         x_coord_token: int = 50257
         y_coord_token: int = 50258
         toks.append(x_coord_token)
-        labs.append(int(sample['points'][0] * 1024))
+        labs.append(int(sample["points"][0] * 1024))
         toks.append(y_coord_token)
-        labs.append(int(sample['points'][1] * 1024))
+        labs.append(int(sample["points"][1] * 1024))
         tokens_acc.append(toks)
         labels_acc.append(labs)
     max_len: int = max(len(l) for l in labels_acc)
@@ -76,24 +85,29 @@ def collate_fn(batch: List[dict], model: AutoModelForCausalLM, tokenizer: AutoTo
         torch.stack([torch.tensor(a, dtype=torch.bool) for a in attn_mask_acc]),
     )
 
-def compute_loss(batch, model):
+
+def compute_loss(
+    batch: Tuple[List[torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor],
+    model: AutoModelForCausalLM,
+) -> torch.Tensor:
+    """Compute the loss for the batch."""
     images, tokens, labels, attn_mask = batch
     tokens = tokens.to(DEVICE)
     labels = labels.to(DEVICE)
     attn_mask = attn_mask.to(DEVICE)
     with torch.no_grad():
-        img_embs = model.vision_encoder(images)
-    tok_embs = model.text_model.get_input_embeddings()(tokens)
-    inputs_embeds = torch.cat(
-        (tok_embs[:, 0:1, :], img_embs, tok_embs[:, 1:, :]), 
-        dim=1
+        img_embs: torch.Tensor = model.vision_encoder(images)
+    tok_embs: torch.Tensor = model.text_model.get_input_embeddings()(tokens)
+    inputs_embeds: torch.Tensor = torch.cat(
+        (tok_embs[:, 0:1, :], img_embs, tok_embs[:, 1:, :]), dim=1
     )
-    outputs = model.text_model(
+    outputs: transformers.modeling_outputs.CausalLMOutputWithPast = model.text_model(
         inputs_embeds=inputs_embeds,
         labels=labels,
         attention_mask=attn_mask,
     )
     return outputs.loss
+
 
 def lr_schedule(step, max_steps, base_lr):
     x = step / max_steps
@@ -102,9 +116,11 @@ def lr_schedule(step, max_steps, base_lr):
     else:
         return 0.1 * base_lr + 0.9 * base_lr * (1 + math.cos(math.pi * (x - 0.1))) / 2
 
+
 def main():
     if USE_WANDB:
         import wandb
+
         os.environ["WANDB_PROJECT"] = "moondream-next-tideu"
         wandb.init(
             project="moondream-next-tideu",
@@ -144,7 +160,7 @@ def main():
         [{"params": model.text_model.parameters()}],
         lr=LR * 0.1,
         betas=(0.9, 0.95),
-        eps=1e-6
+        eps=1e-6,
     )
     print("Starting training...")
     i = 0
@@ -158,12 +174,11 @@ def main():
                 optimizer.zero_grad()
                 lr = lr_schedule(i / GRAD_ACCUM_STEPS, total_steps, LR)
                 for param_group in optimizer.param_groups:
-                    param_group['lr'] = lr
+                    param_group["lr"] = lr
             if USE_WANDB:
-                wandb.log({
-                    "loss/train": loss.item(),
-                    "lr": optimizer.param_groups[0]['lr']
-                })
+                wandb.log(
+                    {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
+                )
     print("Saving model...")
     save_dir = "checkpoints/moondream-point"
     os.makedirs(save_dir, exist_ok=True)
@@ -173,22 +188,22 @@ def main():
         wandb.finish()
     print("Running evaluation...")
     model.eval()
-    for i, sample in enumerate(datasets['test']):
+    for i, sample in enumerate(datasets["test"]):
         if i >= 3:
             break
         points = model.point(
-            sample['image'],
-            sample['query'],
-            tokenizer=tokenizer,
-            max_objects=1
+            sample["image"], sample["query"], tokenizer=tokenizer, max_objects=1
         )
         if points:
             predicted_point = points[0]
-            actual_point = sample['points']
+            actual_point = sample["points"]
             print(f"\nSample {i + 1}")
             print(f"Query: {sample['query']}")
-            print(f"Predicted point: ({predicted_point['x']:.3f}, {predicted_point['y']:.3f})")
+            print(
+                f"Predicted point: ({predicted_point['x']:.3f}, {predicted_point['y']:.3f})"
+            )
             print(f"Actual point: ({actual_point[0]:.3f}, {actual_point[1]:.3f})")
+
 
 if __name__ == "__main__":
     main()
