@@ -2,6 +2,7 @@ import math
 import os
 from typing import List, Tuple
 
+import datasets
 import PIL
 import torch
 import torchvision
@@ -22,21 +23,24 @@ IMG_TOKENS = 729
 MODEL_ID = "vikhyatk/moondream-next"
 PROJECT_NAME = "moondream-next-tideui"
 
-class PointDataset(Dataset):
-    def __init__(self, split="train"):
-        self.data = load_dataset("agentsea/anchor", trust_remote_code=True)[split]
 
-    def __len__(self):
+class PointDataset(Dataset):
+    def __init__(self, split: str = "train"):
+        self.data: datasets.Dataset = load_dataset(
+            "agentsea/anchor", trust_remote_code=True
+        )[split]
+
+    def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx):
-        sample = self.data[idx]
-        normalized_coords = [
+    def __getitem__(self, idx: int) -> dict:
+        sample: dict = self.data[idx]
+        normalized_coords: List[float] = [
             sample["coordinates"][0] / sample["image"].width,
             sample["coordinates"][1] / sample["image"].height,
         ]
         return {
-            "image": sample["image"],  # PIL image
+            "image": sample["image"],
             "points": normalized_coords,
             "query": sample["name"],
         }
@@ -209,7 +213,6 @@ def main():
 if __name__ == "__main__":
     main()
 # TODO:
-# - annotate types
 # - swap optimizer?
 # - adjust optim params
 # - add eval loop
