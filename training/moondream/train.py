@@ -7,16 +7,19 @@ import PIL
 import torch
 import torchvision
 import transformers
-from torch.optim import Adam
+from torch.optim import AdamW
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 
 EPOCHS = 1
 BATCH_SIZE = 1
 GRAD_ACCUM_STEPS = 1
-LR = 1e-5
+LR = 1e-6
+WEIGHT_DECAY = 0.05
+WARMUP_RATIO = 0.1
+MAX_GRAD_NORM = 1.0
 USE_WANDB = True
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_TOKENS = 729
@@ -161,29 +164,38 @@ def main():
     model.text_model.transformer.gradient_checkpointing_enable()
     print("Initializing optimizer...")
     total_steps: int = EPOCHS * len(train_dataloader) // GRAD_ACCUM_STEPS
-    optimizer: torch.optim.Optimizer = Adam(
+    optimizer: torch.optim.Optimizer = AdamW(
         [{"params": model.text_model.parameters()}],
-        lr=LR * 0.1,
-        betas=(0.9, 0.95),
-        eps=1e-6,
+        lr=LR,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=WEIGHT_DECAY,
+    )
+    num_training_steps = EPOCHS * len(train_dataloader) // GRAD_ACCUM_STEPS
+    num_warmup_steps = int(WARMUP_RATIO * num_training_steps)
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=num_training_steps
     )
     print("Starting training...")
     i = 0
     for epoch in range(EPOCHS):
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{EPOCHS}"):
             i += 1
-            loss: torch.Tensor = compute_loss(batch, model)
+            loss = compute_loss(batch, model)
+            loss = loss / GRAD_ACCUM_STEPS
             loss.backward()
             if i % GRAD_ACCUM_STEPS == 0:
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=MAX_GRAD_NORM)
                 optimizer.step()
+                scheduler.step()
                 optimizer.zero_grad()
-                lr: float = lr_schedule(i / GRAD_ACCUM_STEPS, total_steps, LR)
-                for param_group in optimizer.param_groups:
-                    param_group["lr"] = lr
             if USE_WANDB:
-                wandb.log(
-                    {"loss/train": loss.item(), "lr": optimizer.param_groups[0]["lr"]}
-                )
+                wandb.log({
+                    "loss/train": loss.item() * GRAD_ACCUM_STEPS,
+                    "lr": scheduler.get_last_lr()[0]
+                })
     print("Saving model...")
     save_dir: str = f"../../tmp/{PROJECT_NAME}"
     os.makedirs(save_dir, exist_ok=True)
