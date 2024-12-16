@@ -16,10 +16,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedul
 EPOCHS = 1
 BATCH_SIZE = 1
 GRAD_ACCUM_STEPS = 1
-LR = 1e-5
-WEIGHT_DECAY = 0.05
+LR = 1e-6
+WEIGHT_DECAY = 0.001
 WARMUP_RATIO = 0.1
-MAX_GRAD_NORM = 1.0
+MAX_GRAD_NORM = 2.0
 USE_WANDB = True
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 IMG_TOKENS = 729
