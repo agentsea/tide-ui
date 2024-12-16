@@ -2,10 +2,13 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader
 import torch
+import torchvision
 import os
 import math
 from tqdm import tqdm
 from bitsandbytes.optim import Adam8bit
+from typing import List
+import PIL
 
 EPOCHS = 1
 BATCH_SIZE = 1
@@ -35,38 +38,39 @@ class PointDataset(Dataset):
             "query": sample['name']
         }
 
-def collate_fn(batch, model, tokenizer):
-    images = [sample["image"] for sample in batch]
-    images = [model.vision_encoder.preprocess(image) for image in images]
-    labels_acc = []
-    tokens_acc = []
+def collate_fn(batch: List[dict], model: AutoModelForCausalLM, tokenizer: AutoTokenizer) -> tuple[List[torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor]:
+    """ Collate function for the point dataset. """
+    images: List[PIL.PngImagePlugin.PngImageFile] = [sample["image"] for sample in batch]
+    encoded_images: List[torchvision.tv_tensors._image.Image] = [model.vision_encoder.preprocess(image) for image in images]
+    labels_acc: List[List[int]] = []
+    tokens_acc: List[List[int]] = []
     for sample in batch:
-        toks = [tokenizer.bos_token_id]
-        labs = [-100] * (IMG_TOKENS + 1)
-        query_tokens = tokenizer(
+        toks: List[int] = [tokenizer.bos_token_id]
+        labs: List[int] = [-100] * (IMG_TOKENS + 1)
+        query_tokens: List[int] = tokenizer(
             f"\n\nPoint: {sample['query']}\n\n",
             add_special_tokens=False
         ).input_ids
         toks.extend(query_tokens)
         labs.extend([-100] * len(query_tokens))
-        x_coord_token = 50257
-        y_coord_token = 50258
+        x_coord_token: int = 50257
+        y_coord_token: int = 50258
         toks.append(x_coord_token)
         labs.append(int(sample['points'][0] * 1024))
         toks.append(y_coord_token)
         labs.append(int(sample['points'][1] * 1024))
         tokens_acc.append(toks)
         labels_acc.append(labs)
-    max_len = max(len(l) for l in labels_acc)
-    attn_mask_acc = []
+    max_len: int = max(len(l) for l in labels_acc)
+    attn_mask_acc: List[List[int]] = []
     for i in range(len(batch)):
-        len_i = len(labels_acc[i])
-        pad_i = max_len - len_i
+        len_i: int = len(labels_acc[i])
+        pad_i: int = max_len - len_i
         labels_acc[i].extend([-100] * pad_i)
         tokens_acc[i].extend([tokenizer.eos_token_id] * pad_i)
         attn_mask_acc.append([1] * len_i + [0] * pad_i)
     return (
-        images,
+        encoded_images,
         torch.stack([torch.tensor(t, dtype=torch.long) for t in tokens_acc]),
         torch.stack([torch.tensor(l, dtype=torch.long) for l in labels_acc]),
         torch.stack([torch.tensor(a, dtype=torch.bool) for a in attn_mask_acc]),
