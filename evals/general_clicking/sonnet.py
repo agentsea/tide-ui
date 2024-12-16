@@ -1,7 +1,5 @@
 import json
 import os
-import re
-from typing import List
 
 from datasets import load_dataset
 from orign import ChatModel
@@ -57,11 +55,15 @@ if __name__ == "__main__":
             msg=PROMPT_TEMPLATE.format(element=name, schema=schema),
             image=image,
         )
-        json_data = json.loads(response.choices[0].text)
-        point = Point(**json_data)
-        x = point.x * original_width / TARGET_WIDTH
-        y = point.y * original_height / TARGET_HEIGHT
-        point = Point(x=x, y=y)
+        try:
+            json_data = json.loads(response.choices[0].text)
+            point = Point(**json_data)
+            x = point.x * original_width / TARGET_WIDTH
+            y = point.y * original_height / TARGET_HEIGHT
+            point = Point(x=x, y=y)
+        except Exception as e:
+            point = Point(x=0, y=0)
+            print(f"Skipping example due to error: {e}")
         predictions.append([point.x, point.y])
         targets.append(example["point"])
         resolutions.append(example["resolution"])
