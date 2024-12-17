@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="tideui.png" width="400"/>
+  <img src="./assets/tideui.png" width="400"/>
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@ UI-specific click-data can be captured in a process similar to the one outlined 
 Among others, some of the best open-source models for clicking are:
 
 1. [Molmo](https://huggingface.co/allenai/Molmo-7B-D-0924) 
-3. [Moondream](https://github.com/vikhyat/moondream)
+2. [Moondream](https://github.com/vikhyat/moondream)
 
 We will focus on these two models for now. For more info on their performance vs Claude Sonnet 3.5 see [evals/general_clicking/](./evals/general_clicking/)
 
