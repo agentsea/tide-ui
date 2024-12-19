@@ -16,7 +16,7 @@ There are models today that perform well on the task of clicking on UI elements.
 
 However, for many use-cases, it's not necessary for a model to be performant in **any** UI, but, rather, in a specific UI. For examples, someone looking for flights might be satisfied with a model that performs well on the Google Flights UI.
 
-This project explores a pipeline to improve click models on specific UIs.
+This project explores a pipeline to improve click models on specific UIs. For a full report see [this](./REPORT.md).
 
 ## Data
 
@@ -42,6 +42,7 @@ For more details see [evals/](./evals/).
 
 ## TODO
 
-- [ ] ds eval
-- [ ] agent eval
-- [ ] training experiments: change lr/epoch/ds_size/etc
+- [ ] Update Claude evals. Maybe add Gemini 2 evals?
+- [ ] Fine-tune Moondream
+- [ ] Determine optimal hyperparameters, like dataset size, learning rate, etc.
+- [ ] Add methods to avoid catastrophic forgetting, like data-mixing with the pre-training data, adding a curriculum, etc.
